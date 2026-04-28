@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>とぅどぅ</title>
+  <link rel="stylesheet" href="todo.css">
+</head>
+<body>
+  <div class="container">
+    <div class="title-row">
+      <h1>とぅどぅ</h1>
+      <button id="historyBtn" class="history-btn">履歴</button>
+    </div>
+    <div class="input-row">
+      <div class="select-wrapper">
+        <select class="type-select" id="typeSelect">
+          <option value="task">タスク</option>
+          <option value="list">リスト</option>
+        </select>
+        <span class="select-arrow">
+          <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+            <path d="M1 1l4 4 4-4" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </div>
+      <input type="text" id="mainInput" placeholder="タスクを入力..." />
+      <button class="add-btn" id="addBtn">追加</button>
+    </div>
+    <div id="itemList"></div>
+    <p class="empty" id="emptyMsg">アイテムがありません</p>
+
+    <div id="historyPanel" class="history-panel" hidden>
+      <div class="history-header">
+        <span class="history-title">履歴</span>
+        <button id="historyClearBtn" class="history-clear-btn">クリア</button>
+        <button id="historyCloseBtn" class="history-close-btn">×</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+      <p id="historyEmptyMsg" class="history-empty-msg">履歴はありません</p>
+    </div>
+  </div>
+  <script src="todo.js"></script>
+</body>
+</html>
