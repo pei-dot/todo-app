@@ -10,7 +10,10 @@
   <div class="container">
     <div class="title-row">
       <h1>とぅどぅ</h1>
-      <button id="historyBtn" class="history-btn">履歴</button>
+      <div class="title-actions">
+        <button id="selectModeBtn" class="select-mode-btn">まとめて選択</button>
+        <button id="historyBtn" class="history-btn">履歴</button>
+      </div>
     </div>
     <div class="input-row">
       <div class="select-wrapper">
@@ -27,6 +30,20 @@
       <input type="text" id="mainInput" placeholder="タスクを入力..." />
       <button class="add-btn" id="addBtn">追加</button>
     </div>
+    <div id="selectBar" class="select-bar" hidden>
+      <div class="sel-bar-main" id="selBarMain">
+        <button id="selAllBtn" class="sel-all-btn">全選択</button>
+        <span id="selCount" class="sel-count">0件選択中</span>
+        <button id="selDeleteBtn" class="sel-delete-btn" disabled>削除</button>
+        <button id="selCancelBtn" class="sel-cancel-btn">キャンセル</button>
+      </div>
+      <div class="sel-bar-confirm" id="selBarConfirm" hidden>
+        <span id="selConfirmMsg" class="sel-confirm-msg"></span>
+        <button id="selConfirmYesBtn" class="confirm-yes-btn">削除</button>
+        <button id="selConfirmNoBtn" class="confirm-no-btn">戻る</button>
+      </div>
+    </div>
+
     <div id="itemList"></div>
     <p class="empty" id="emptyMsg">アイテムがありません</p>
 

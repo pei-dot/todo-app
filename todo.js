@@ -17,6 +17,21 @@ const GRIP_SVG = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentC
   <circle cx="7" cy="12" r="1.4"/>
 </svg>`;
 
+const CALENDAR_SVG = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="1" y="2.5" width="11" height="9.5" rx="1.5"/>
+  <line x1="1" y1="6" x2="12" y2="6"/>
+  <line x1="4" y1="1" x2="4" y2="4"/>
+  <line x1="9" y1="1" x2="9" y2="4"/>
+</svg>`;
+
+const PIN_SVG = `<svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="5" cy="5" r="4.2"/>
+  <line x1="8.2" y1="8.2" x2="12.5" y2="12.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="5" cy="5" r="1.6" fill="white" opacity="0.55"/>
+</svg>`;
+
+let selectMode = false;
+
 // ── Dropdown ─────────────────────────────────────────────
 const selectWrapper = typeSelect.closest('.select-wrapper');
 typeSelect.addEventListener('mousedown', () => selectWrapper.classList.toggle('open'));
@@ -33,22 +48,32 @@ addBtn.addEventListener('click', addItem);
 function addItem() {
   const text = mainInput.value.trim();
   if (!text) return;
+  let el;
   if (typeSelect.value === 'list') {
-    itemList.appendChild(createListItem(text));
+    el = createListItem(text);
     logEvent('add', `リスト「${text}」を追加`);
   } else {
-    itemList.appendChild(createTaskItem(text));
+    el = createTaskItem(text);
     logEvent('add', `タスク「${text}」を追加`);
   }
+  insertAfterPinned(itemList, el);
   mainInput.value = '';
   mainInput.focus();
   updateEmpty();
+  saveState();
 }
 
 // ── Task item ────────────────────────────────────────────
-function createTaskItem(text) {
+function createTaskItem(text, createdAt = null, dueDate = null, dueTime = null) {
   const item = document.createElement('div');
   item.className = 'task-item';
+
+  const dateObj = createdAt ? new Date(createdAt) : new Date();
+  item.dataset.created = dateObj.toISOString();
+  const dateStr = `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日に追加`;
+
+  const selCheck = document.createElement('span');
+  selCheck.className = 'sel-check';
 
   const handle = document.createElement('span');
   handle.className = 'drag-handle';
@@ -61,15 +86,47 @@ function createTaskItem(text) {
   checkBtn.innerHTML = CHECK_SVG;
   checkBtn.addEventListener('click', () => {
     item.classList.toggle('done');
+    const isDone = item.classList.contains('done');
+    const container = item.parentElement;
+
+    if (!item.classList.contains('pinned')) {
+      if (isDone) {
+        container.appendChild(item);
+      } else {
+        const firstDone = [...container.children].find(
+          el => el !== item && el.classList.contains('task-item') && el.classList.contains('done')
+        );
+        if (firstDone) container.insertBefore(item, firstDone);
+      }
+    }
+
     const wrapper = getParentListWrapper(item);
     if (wrapper) updateListCount(wrapper);
-    const isDone = item.classList.contains('done');
     logEvent(isDone ? 'done' : 'undone', `タスク「${text}」を${isDone ? '完了' : '未完了'}に変更`);
+    saveState();
   });
 
   const span = document.createElement('span');
   span.className = 'task-text';
   span.textContent = text;
+
+  const dateSpan = document.createElement('span');
+  dateSpan.className = 'task-date-tip';
+  dateSpan.textContent = dateStr;
+
+  if (dueDate) item.dataset.due = dueDate;
+  if (dueTime) item.dataset.dueTime = dueTime;
+
+  const dueBadge = document.createElement('span');
+  dueBadge.className = 'task-due';
+  updateDueBadge(dueBadge, dueDate, dueTime);
+  dueBadge.addEventListener('mousedown', e => { e.stopPropagation(); e.preventDefault(); openDatePicker(dueBtn, item, text, dueBadge); });
+
+  const dueBtn = document.createElement('button');
+  dueBtn.className = 'due-btn';
+  dueBtn.setAttribute('aria-label', '期限を設定');
+  dueBtn.innerHTML = CALENDAR_SVG;
+  dueBtn.addEventListener('mousedown', e => { e.stopPropagation(); e.preventDefault(); openDatePicker(dueBtn, item, text, dueBadge); });
 
   const delBtn = document.createElement('button');
   delBtn.className = 'delete-btn';
@@ -86,12 +143,30 @@ function createTaskItem(text) {
       item.remove();
       if (wrapper) updateListCount(wrapper);
       else updateEmpty();
+      saveState();
     });
   });
 
+  const pinBtn = document.createElement('button');
+  pinBtn.className = 'pin-btn';
+  pinBtn.setAttribute('aria-label', 'ピン');
+  pinBtn.innerHTML = PIN_SVG;
+  pinBtn.addEventListener('click', () => togglePin(item));
+
+  item.addEventListener('click', () => {
+    if (!selectMode) return;
+    item.classList.toggle('selected');
+    updateSelectBar();
+  });
+
+  item.appendChild(dateSpan);
+  item.appendChild(selCheck);
   item.appendChild(handle);
   item.appendChild(checkBtn);
   item.appendChild(span);
+  item.appendChild(dueBadge);
+  item.appendChild(dueBtn);
+  item.appendChild(pinBtn);
   item.appendChild(delBtn);
 
   initDrag(item, handle);
@@ -127,6 +202,7 @@ function showInlineForm(afterEl, container) {
     if (wrapper) {
       updateListCount(wrapper);
       logEvent('add', `タスク「${t}」を追加`);
+      saveState();
     }
   };
 
@@ -155,9 +231,18 @@ function createListItem(title) {
   const header = document.createElement('div');
   header.className = 'list-header';
   header.addEventListener('click', e => {
+    if (selectMode) {
+      wrapper.classList.toggle('selected');
+      updateSelectBar();
+      return;
+    }
     if (e.target.closest('.list-delete-btn') || e.target.closest('.drag-handle')) return;
     wrapper.classList.toggle('collapsed');
+    saveState();
   });
+
+  const listSelCheck = document.createElement('span');
+  listSelCheck.className = 'sel-check';
 
   const dragHandle = document.createElement('span');
   dragHandle.className = 'drag-handle';
@@ -188,13 +273,22 @@ function createListItem(title) {
       logEvent('delete', `リスト「${title}」を削除`);
       wrapper.remove();
       updateEmpty();
+      saveState();
     });
   });
 
+  const pinBtn = document.createElement('button');
+  pinBtn.className = 'pin-btn';
+  pinBtn.setAttribute('aria-label', 'ピン');
+  pinBtn.innerHTML = PIN_SVG;
+  pinBtn.addEventListener('click', e => { e.stopPropagation(); togglePin(wrapper); });
+
+  header.appendChild(listSelCheck);
   header.appendChild(dragHandle);
   header.appendChild(toggleIcon);
   header.appendChild(titleSpan);
   header.appendChild(countBadge);
+  header.appendChild(pinBtn);
   header.appendChild(delBtn);
 
   // body
@@ -247,6 +341,157 @@ function confirmDelete(container, label, onConfirm) {
   overlay.appendChild(yesBtn);
   overlay.appendChild(noBtn);
   container.appendChild(overlay);
+}
+
+// ── Due date ─────────────────────────────────────────────
+function updateDueBadge(badge, dueDate, dueTime) {
+  if (!dueDate) { badge.style.display = 'none'; return; }
+  const due   = new Date(dueDate + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff  = Math.round((due - today) / 86400000);
+  const datePart = `${due.getMonth() + 1}月${due.getDate()}日`;
+  const timePart = dueTime ? ` ${dueTime}` : '';
+  badge.style.display = 'inline-flex';
+  badge.dataset.status = diff < 0 ? 'overdue' : diff === 0 ? 'today' : diff <= 3 ? 'soon' : 'future';
+  badge.textContent = datePart + timePart + (diff < 0 ? ' 期限切れ' : diff === 0 ? ' 今日まで' : '');
+}
+
+// ── Custom date picker ────────────────────────────────────
+let activePickerPopup = null;
+
+document.addEventListener('mousedown', e => {
+  if (activePickerPopup && !activePickerPopup.contains(e.target)) closeDatePicker();
+});
+
+function closeDatePicker() {
+  if (activePickerPopup) { activePickerPopup.remove(); activePickerPopup = null; }
+}
+
+function openDatePicker(anchor, item, text, badge) {
+  closeDatePicker();
+
+  const curDate = item.dataset.due || null;
+  const curTime = item.dataset.dueTime || '';
+  let viewYear  = curDate ? +curDate.slice(0, 4) : new Date().getFullYear();
+  let viewMonth = curDate ? +curDate.slice(5, 7) - 1 : new Date().getMonth();
+  let selDate   = curDate;
+
+  const popup = document.createElement('div');
+  popup.className = 'dp-popup';
+
+  // ── header ──
+  const hdr = document.createElement('div'); hdr.className = 'dp-header';
+  const prevBtn = document.createElement('button'); prevBtn.className = 'dp-nav'; prevBtn.textContent = '‹';
+  const monthLbl = document.createElement('span'); monthLbl.className = 'dp-month-lbl';
+  const nextBtn = document.createElement('button'); nextBtn.className = 'dp-nav'; nextBtn.textContent = '›';
+  hdr.append(prevBtn, monthLbl, nextBtn);
+
+  // ── grid ──
+  const grid = document.createElement('div'); grid.className = 'dp-grid';
+
+  // ── time ──
+  const timeRow = document.createElement('div'); timeRow.className = 'dp-time-row';
+  const timeLbl = document.createElement('span'); timeLbl.className = 'dp-time-lbl'; timeLbl.textContent = '時間';
+  const timeInput = document.createElement('input'); timeInput.type = 'time'; timeInput.className = 'dp-time-input'; timeInput.value = curTime;
+  timeRow.append(timeLbl, timeInput);
+
+  // ── actions ──
+  const acts = document.createElement('div'); acts.className = 'dp-actions';
+  const clearBtn = document.createElement('button'); clearBtn.className = 'dp-clear'; clearBtn.textContent = 'クリア';
+  const setBtn   = document.createElement('button'); setBtn.className   = 'dp-set';   setBtn.textContent   = '設定';
+  acts.append(clearBtn, setBtn);
+
+  popup.append(hdr, grid, timeRow, acts);
+
+  const DAY_NAMES = ['日','月','火','水','木','金','土'];
+
+  function renderGrid() {
+    grid.innerHTML = '';
+    monthLbl.textContent = `${viewYear}年${viewMonth + 1}月`;
+    DAY_NAMES.forEach((n, i) => {
+      const c = document.createElement('div'); c.className = 'dp-day-name';
+      c.textContent = n;
+      if (i === 0) c.style.color = '#e74c3c';
+      if (i === 6) c.style.color = '#2196f3';
+      grid.appendChild(c);
+    });
+    const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+    const days     = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const todayObj = new Date();
+    for (let i = 0; i < firstDow; i++) grid.appendChild(document.createElement('div'));
+    for (let d = 1; d <= days; d++) {
+      const dateStr = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dow = (firstDow + d - 1) % 7;
+      const cell = document.createElement('div'); cell.className = 'dp-day';
+      cell.textContent = d;
+      if (dow === 0) cell.classList.add('dp-sun');
+      if (dow === 6) cell.classList.add('dp-sat');
+      if (todayObj.getFullYear()===viewYear && todayObj.getMonth()===viewMonth && todayObj.getDate()===d) cell.classList.add('dp-today');
+      if (selDate === dateStr) cell.classList.add('dp-sel');
+      cell.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); selDate = dateStr; renderGrid(); });
+      grid.appendChild(cell);
+    }
+  }
+
+  prevBtn.addEventListener('mousedown', e => { e.preventDefault(); if (--viewMonth < 0){ viewMonth=11; viewYear--; } renderGrid(); });
+  nextBtn.addEventListener('mousedown', e => { e.preventDefault(); if (++viewMonth > 11){ viewMonth=0; viewYear++; } renderGrid(); });
+
+  clearBtn.addEventListener('mousedown', e => {
+    e.preventDefault();
+    item.dataset.due = ''; item.dataset.dueTime = '';
+    updateDueBadge(badge, null, null);
+    logEvent('delete', `タスク「${text}」の期限を削除`);
+    saveState(); closeDatePicker();
+  });
+
+  setBtn.addEventListener('mousedown', e => {
+    e.preventDefault();
+    if (!selDate) { closeDatePicker(); return; }
+    const t = timeInput.value || '';
+    item.dataset.due = selDate; item.dataset.dueTime = t;
+    updateDueBadge(badge, selDate, t);
+    const d = new Date(selDate + 'T00:00:00');
+    const dl = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+    logEvent('add', `タスク「${text}」に期限 ${dl}${t ? ' ' + t : ''} を設定`);
+    saveState(); closeDatePicker();
+  });
+
+  renderGrid();
+  document.body.appendChild(popup);
+  activePickerPopup = popup;
+
+  const r = anchor.getBoundingClientRect();
+  const pw = 232, ph = popup.offsetHeight || 310;
+  let top  = r.bottom + 6, left = r.right - pw;
+  if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  if (top < 8) top = 8;
+  if (left < 4) left = 4;
+  if (left + pw > window.innerWidth - 4) left = window.innerWidth - pw - 4;
+  popup.style.cssText = `position:fixed;top:${top}px;left:${left}px;`;
+}
+
+// ── Pin ───────────────────────────────────────────────────
+function togglePin(item) {
+  const container = item.parentElement;
+  item.classList.toggle('pinned');
+
+  // ピン済み → ピン済みグループの末尾へ
+  // ピンなし → ピンなしグループの先頭（最後のピン済みの直後）へ
+  const lastPinned = [...container.children]
+    .filter(el => el !== item && el.classList.contains('pinned'))
+    .at(-1);
+  if (lastPinned) container.insertBefore(item, lastPinned.nextSibling);
+  else container.prepend(item);
+
+  saveState();
+}
+
+function insertAfterPinned(container, el) {
+  const lastPinned = [...container.children]
+    .filter(c => c.classList.contains('pinned'))
+    .at(-1);
+  if (lastPinned) container.insertBefore(el, lastPinned.nextSibling);
+  else container.prepend(el);
 }
 
 // ── Helpers ──────────────────────────────────────────────
@@ -303,9 +548,25 @@ function initDropZone(container) {
     if (dragSrc.classList.contains('list-item') && container !== itemList) return;
     e.stopPropagation();
 
-    const after = getAfterEl(container, e.clientY);
-    if (!after) container.appendChild(dropLine);
-    else container.insertBefore(dropLine, after);
+    const isDragPinned = dragSrc.classList.contains('pinned');
+    // 同じピン状態のアイテムの中から挿入位置を探す
+    const after = getAfterEl(container, e.clientY, isDragPinned);
+
+    if (after) {
+      container.insertBefore(dropLine, after);
+    } else {
+      // 同グループの末尾 = ピン済みなら最初のピンなしアイテムの直前、ピンなしなら末尾
+      if (isDragPinned) {
+        const firstUnpinned = [...container.children].find(
+          el => el !== dropLine && el.draggable &&
+                !el.classList.contains('pinned') && !el.classList.contains('dragging')
+        );
+        if (firstUnpinned) container.insertBefore(dropLine, firstUnpinned);
+        else container.appendChild(dropLine);
+      } else {
+        container.appendChild(dropLine);
+      }
+    }
   });
 
   container.addEventListener('drop', e => {
@@ -344,6 +605,7 @@ function initDropZone(container) {
     }
 
     updateEmpty();
+    saveState();
   });
 
   container.addEventListener('dragleave', e => {
@@ -353,10 +615,13 @@ function initDropZone(container) {
   });
 }
 
-function getAfterEl(container, y) {
-  const items = [...container.children].filter(
-    el => el.draggable && !el.classList.contains('dragging')
-  );
+function getAfterEl(container, y, isPinned) {
+  // isPinned が指定された場合は同じピン状態のアイテムのみ候補にする
+  const items = [...container.children].filter(el => {
+    if (!el.draggable || el.classList.contains('dragging')) return false;
+    if (isPinned !== undefined) return el.classList.contains('pinned') === isPinned;
+    return true;
+  });
   return items.reduce((closest, child) => {
     const box    = child.getBoundingClientRect();
     const offset = y - box.top - box.height / 2;
@@ -379,6 +644,7 @@ document.getElementById('historyCloseBtn').addEventListener('click', () => {
 });
 document.getElementById('historyClearBtn').addEventListener('click', () => {
   historyEntries.length = 0;
+  localStorage.removeItem('todoHistory');
   renderHistory();
 });
 
@@ -387,6 +653,7 @@ function logEvent(type, message) {
   const time = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   historyEntries.unshift({ type, message, time });
   renderHistory();
+  localStorage.setItem('todoHistory', JSON.stringify(historyEntries));
 }
 
 function renderHistory() {
@@ -414,6 +681,181 @@ function renderHistory() {
   });
 }
 
+// ── Persistence ──────────────────────────────────────────
+function getState() {
+  const items = [];
+  for (const el of itemList.children) {
+    if (el.classList.contains('task-item')) {
+      items.push({
+        type: 'task',
+        text: el.querySelector('.task-text').textContent,
+        done: el.classList.contains('done'),
+        pinned: el.classList.contains('pinned'),
+        createdAt: el.dataset.created,
+        dueDate: el.dataset.due || null,
+        dueTime: el.dataset.dueTime || null
+      });
+    } else if (el.classList.contains('list-item')) {
+      const subList = el.querySelector('.sub-task-list');
+      const tasks = [...subList.querySelectorAll(':scope > .task-item')].map(t => ({
+        text: t.querySelector('.task-text').textContent,
+        done: t.classList.contains('done'),
+        pinned: t.classList.contains('pinned'),
+        createdAt: t.dataset.created,
+        dueDate: t.dataset.due || null,
+        dueTime: t.dataset.dueTime || null
+      }));
+      items.push({
+        type: 'list',
+        title: el.querySelector('.list-title').textContent,
+        collapsed: el.classList.contains('collapsed'),
+        pinned: el.classList.contains('pinned'),
+        tasks
+      });
+    }
+  }
+  return items;
+}
+
+function saveState() {
+  localStorage.setItem('todoState', JSON.stringify(getState()));
+}
+
+function loadState() {
+  const raw = localStorage.getItem('todoState');
+  if (!raw) return;
+  try {
+    const items = JSON.parse(raw);
+    for (const item of items) {
+      if (item.type === 'task') {
+        const el = createTaskItem(item.text, item.createdAt, item.dueDate, item.dueTime);
+        if (item.done)   el.classList.add('done');
+        if (item.pinned) el.classList.add('pinned');
+        itemList.appendChild(el);
+      } else if (item.type === 'list') {
+        const el = createListItem(item.title);
+        if (item.collapsed) el.classList.add('collapsed');
+        if (item.pinned)    el.classList.add('pinned');
+        for (const task of item.tasks) {
+          const taskEl = createTaskItem(task.text, task.createdAt, task.dueDate, task.dueTime);
+          if (task.done)   taskEl.classList.add('done');
+          if (task.pinned) taskEl.classList.add('pinned');
+          el._subList.appendChild(taskEl);
+        }
+        updateListCount(el);
+        itemList.appendChild(el);
+      }
+    }
+  } catch (e) {
+    console.warn('状態の復元に失敗しました', e);
+  }
+  updateEmpty();
+}
+
+// ── Bulk select ──────────────────────────────────────────
+const mainContainer   = document.querySelector('.container');
+const selectBar       = document.getElementById('selectBar');
+const selBarMain      = document.getElementById('selBarMain');
+const selBarConfirm   = document.getElementById('selBarConfirm');
+const selCount        = document.getElementById('selCount');
+const selDeleteBtn    = document.getElementById('selDeleteBtn');
+const selConfirmMsg   = document.getElementById('selConfirmMsg');
+
+function enterSelectMode() {
+  selectMode = true;
+  mainContainer.classList.add('select-mode');
+  historyPanel.hidden = true;
+  closeDatePicker();
+  selectBar.hidden = false;
+  selBarMain.hidden = false;
+  selBarConfirm.hidden = true;
+  updateSelectBar();
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  mainContainer.classList.remove('select-mode');
+  document.querySelectorAll('.task-item.selected, .list-item.selected')
+    .forEach(el => el.classList.remove('selected'));
+  selectBar.hidden = true;
+}
+
+function updateSelectBar() {
+  const n = document.querySelectorAll('.task-item.selected, .list-item.selected').length;
+  selCount.textContent = `${n}件選択中`;
+  selDeleteBtn.disabled = n === 0;
+}
+
+function execDeleteSelected() {
+  const selected = [...document.querySelectorAll('.task-item.selected, .list-item.selected')];
+  const affectedLists = new Set();
+
+  for (const el of selected) {
+    if (el.classList.contains('task-item')) {
+      const wrapper = getParentListWrapper(el);
+      // 親リストも選択されている場合はスキップ（リスト削除時に一緒に消える）
+      if (wrapper?.classList.contains('selected')) continue;
+      const text = el.querySelector('.task-text').textContent;
+      if (wrapper) {
+        logEvent('delete', `リスト「${wrapper.querySelector('.list-title').textContent}」内のタスク「${text}」を削除`);
+        el.remove();
+        affectedLists.add(wrapper);
+      } else {
+        logEvent('delete', `タスク「${text}」を削除`);
+        el.remove();
+      }
+    } else if (el.classList.contains('list-item')) {
+      logEvent('delete', `リスト「${el.querySelector('.list-title').textContent}」を削除`);
+      el.remove();
+    }
+  }
+
+  affectedLists.forEach(w => { if (w.isConnected) updateListCount(w); });
+  updateEmpty();
+  saveState();
+  exitSelectMode();
+}
+
+document.getElementById('selectModeBtn').addEventListener('click', () => {
+  if (selectMode) exitSelectMode();
+  else enterSelectMode();
+});
+
+document.getElementById('selAllBtn').addEventListener('click', () => {
+  const topItems = [...itemList.children].filter(
+    el => el.classList.contains('task-item') || el.classList.contains('list-item')
+  );
+  const allSelected = topItems.length > 0 && topItems.every(el => el.classList.contains('selected'));
+  topItems.forEach(el => el.classList.toggle('selected', !allSelected));
+  updateSelectBar();
+});
+
+document.getElementById('selCancelBtn').addEventListener('click', exitSelectMode);
+
+selDeleteBtn.addEventListener('click', () => {
+  const n = document.querySelectorAll('.task-item.selected, .list-item.selected').length;
+  selConfirmMsg.textContent = `${n}件を削除しますか？`;
+  selBarMain.hidden = true;
+  selBarConfirm.hidden = false;
+});
+
+document.getElementById('selConfirmYesBtn').addEventListener('click', execDeleteSelected);
+
+document.getElementById('selConfirmNoBtn').addEventListener('click', () => {
+  selBarMain.hidden = false;
+  selBarConfirm.hidden = true;
+});
+
 // ── Init ─────────────────────────────────────────────────
 initDropZone(itemList);
-updateEmpty();
+loadState();
+
+try {
+  const savedHistory = localStorage.getItem('todoHistory');
+  if (savedHistory) {
+    historyEntries.push(...JSON.parse(savedHistory));
+    renderHistory();
+  }
+} catch (e) {
+  console.warn('履歴の復元に失敗しました', e);
+}

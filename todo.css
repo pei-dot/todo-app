@@ -246,6 +246,227 @@ h1 {
 
 .confirm-no-btn:hover { background: #ddd; }
 
+/* ── Task date tooltip ── */
+.task-date-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 40, 0.82);
+  color: #fff;
+  font-size: 0.72rem;
+  padding: 4px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 20;
+}
+
+.task-date-tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: rgba(30, 30, 40, 0.82);
+}
+
+.task-item:hover .task-date-tip { opacity: 1; }
+
+/* ── Due date ── */
+.task-due {
+  display: none;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.task-due[data-status="future"]  { background: #ede9ff; color: #6c63ff; }
+.task-due[data-status="soon"]    { background: #fff3cd; color: #c47d00; }
+.task-due[data-status="today"]   { background: #fef3c7; color: #d97706; font-weight: 600; }
+.task-due[data-status="overdue"] { background: #fee2e2; color: #dc2626; font-weight: 600; }
+
+.due-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ccc;
+  display: flex;
+  align-items: center;
+  padding: 0 3px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.due-btn:hover { color: #6c63ff; }
+
+.task-date-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  border: none;
+  padding: 0;
+}
+
+/* ── Date picker popup ── */
+.dp-popup {
+  background: #fff;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+  padding: 14px;
+  width: 232px;
+  z-index: 9999;
+  user-select: none;
+}
+
+.dp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.dp-nav {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: #6c63ff;
+  padding: 2px 8px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+.dp-nav:hover { background: #f0eeff; }
+
+.dp-month-lbl {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #2d2b55;
+}
+
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.dp-day-name {
+  text-align: center;
+  font-size: 0.68rem;
+  color: #aaa;
+  padding: 3px 0;
+}
+
+.dp-day {
+  text-align: center;
+  font-size: 0.8rem;
+  padding: 5px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.1s;
+}
+.dp-day:hover { background: #f0eeff; }
+.dp-day.dp-sun { color: #e74c3c; }
+.dp-day.dp-sat { color: #2196f3; }
+.dp-day.dp-today { font-weight: 700; }
+.dp-day.dp-sel   { background: #6c63ff !important; color: #fff !important; border-radius: 6px; }
+
+.dp-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 10px;
+}
+
+.dp-time-lbl { font-size: 0.82rem; color: #666; }
+
+.dp-time-input {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.dp-time-input:focus { border-color: #6c63ff; }
+
+.dp-actions { display: flex; gap: 6px; }
+
+.dp-clear {
+  flex: 1;
+  padding: 7px;
+  background: none;
+  border: 1.5px solid #eee;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dp-clear:hover { border-color: #e74c3c; color: #e74c3c; }
+
+.dp-set {
+  flex: 2;
+  padding: 7px;
+  background: #6c63ff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-weight: 600;
+}
+.dp-set:hover { background: #574fd6; }
+
+/* ── Pin button ── */
+.pin-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #d0d0d0;
+  display: flex;
+  align-items: center;
+  padding: 0 3px;
+  border-radius: 4px;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.pin-btn:hover { color: #6c63ff; }
+
+.task-item.pinned .pin-btn,
+.list-item.pinned .pin-btn {
+  color: #fff;
+  background: #6c63ff;
+  border-radius: 50%;
+  padding: 3px;
+}
+
+.task-item.pinned,
+.list-item.pinned {
+  border-color: #c4bff5;
+  background: #f5f3ff;
+}
+
 /* ── Delete button ── */
 .delete-btn {
   flex-shrink: 0;
@@ -529,3 +750,150 @@ h1 {
   font-size: 0.9rem;
   padding: 24px 0;
 }
+
+/* ── Title actions ── */
+.title-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ── Select mode button ── */
+.select-mode-btn {
+  padding: 6px 14px;
+  background: #f0eeff;
+  color: #6c63ff;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.select-mode-btn:hover { background: #e0deff; }
+.container.select-mode .select-mode-btn {
+  background: #6c63ff;
+  color: #fff;
+  border-color: #6c63ff;
+}
+
+/* ── Select bar ── */
+.select-bar {
+  margin-bottom: 16px;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 10px;
+  background: #f5f3ff;
+  overflow: hidden;
+}
+.select-bar[hidden] { display: none; }
+
+.sel-bar-main,
+.sel-bar-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+}
+.sel-bar-confirm[hidden] { display: none; }
+
+.sel-count {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6c63ff;
+  text-align: center;
+}
+.sel-confirm-msg {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #c0392b;
+}
+
+.sel-all-btn {
+  padding: 5px 12px;
+  background: none;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  color: #6c63ff;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.sel-all-btn:hover { background: #e0deff; }
+
+.sel-cancel-btn {
+  padding: 5px 12px;
+  background: none;
+  border: 1.5px solid #ddd;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  color: #888;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.sel-cancel-btn:hover { background: #eee; }
+
+.sel-delete-btn {
+  padding: 5px 14px;
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.sel-delete-btn:hover:not(:disabled) { background: #c0392b; }
+.sel-delete-btn:disabled { background: #ddd; color: #aaa; cursor: default; }
+
+/* ── Sel-check circle ── */
+.sel-check {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #c0b8f0;
+  background: transparent;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.select-mode .sel-check { display: flex; }
+
+.task-item.selected .sel-check,
+.list-item.selected .sel-check {
+  background: #6c63ff;
+  border-color: #6c63ff;
+}
+.task-item.selected .sel-check::after,
+.list-item.selected .sel-check::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 8px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+/* ── Select mode overrides ── */
+.select-mode .drag-handle { display: none; }
+
+.select-mode .check-btn,
+.select-mode .task-due,
+.select-mode .due-btn,
+.select-mode .pin-btn,
+.select-mode .delete-btn,
+.select-mode .list-delete-btn { pointer-events: none; opacity: 0; }
+
+.select-mode .task-item { cursor: pointer; }
+.select-mode .list-header { cursor: pointer; }
+
+.select-mode .task-item.selected { opacity: 1; background: #e8e4ff !important; }
+.select-mode .list-item.selected > .list-header { background: #e8e4ff; }
+.list-item.selected { border-color: #b8b0f5; }
