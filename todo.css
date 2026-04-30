@@ -897,3 +897,43 @@ h1 {
 .select-mode .task-item.selected { opacity: 1; background: #e8e4ff !important; }
 .select-mode .list-item.selected > .list-header { background: #e8e4ff; }
 .list-item.selected { border-color: #b8b0f5; }
+
+/* ── スマホ対応 ── */
+@media (max-width: 540px) {
+  body { padding: 20px 8px; }
+
+  .container { padding: 20px 14px; border-radius: 10px; }
+
+  h1 { font-size: 1.3rem; }
+
+  .history-btn,
+  .select-mode-btn { padding: 5px 10px; font-size: 0.8rem; }
+
+  /* 入力行 */
+  .input-row { gap: 6px; flex-wrap: wrap; }
+  .input-row input { min-width: 0; }
+  .add-btn { padding: 10px 14px; }
+  .type-select { padding: 9px 24px 9px 8px; font-size: 0.82rem; }
+
+  /* タスクアイテム */
+  .task-item { padding: 10px 10px; gap: 8px; }
+  .check-btn { width: 28px; height: 28px; }
+
+  /* ドラッグハンドルをスマホ向けに大きく */
+  .drag-handle { padding: 0 6px; }
+
+  /* リスト */
+  .list-header { padding: 10px 10px; gap: 8px; }
+  .list-body { padding: 0 10px 10px; }
+
+  /* 選択バー */
+  .sel-bar-main,
+  .sel-bar-confirm { gap: 6px; padding: 8px 10px; }
+  .sel-all-btn,
+  .sel-cancel-btn,
+  .sel-delete-btn { padding: 6px 10px; font-size: 0.8rem; }
+  .sel-count { font-size: 0.82rem; }
+
+  /* 日付ピッカー */
+  .dp-popup { width: 210px; }
+}

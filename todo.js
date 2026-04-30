@@ -539,6 +539,105 @@ function initDrag(item, handle) {
     dragSrc    = null;
     fromHandle = false;
   });
+
+  // ── タッチ対応 ──────────────────────────────────────────
+  let touchActive = false;
+  let touchClone  = null;
+  let touchOffX, touchOffY;
+
+  handle.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect  = item.getBoundingClientRect();
+    touchOffX = touch.clientX - rect.left;
+    touchOffY = touch.clientY - rect.top;
+
+    fromHandle = true;
+    dragSrc    = item;
+    touchActive = true;
+
+    touchClone = item.cloneNode(true);
+    touchClone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;`
+      + `width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:1000;`
+      + `box-shadow:0 8px 24px rgba(0,0,0,0.18);border-radius:8px;`;
+    document.body.appendChild(touchClone);
+    setTimeout(() => item.classList.add('dragging'), 0);
+  }, { passive: false });
+
+  handle.addEventListener('touchmove', e => {
+    if (!touchActive) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+
+    touchClone.style.left = `${touch.clientX - touchOffX}px`;
+    touchClone.style.top  = `${touch.clientY - touchOffY}px`;
+
+    // クローンを一時非表示にして指の下の要素を取得
+    touchClone.style.visibility = 'hidden';
+    const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+    touchClone.style.visibility = '';
+    if (!elBelow) return;
+
+    const container = elBelow.closest('.sub-task-list') || elBelow.closest('#itemList');
+    if (!container) { if (dropLine.parentElement) dropLine.remove(); return; }
+    if (dragSrc.classList.contains('list-item') && container !== itemList) {
+      if (dropLine.parentElement) dropLine.remove(); return;
+    }
+
+    const isDragPinned = dragSrc.classList.contains('pinned');
+    const after = getAfterEl(container, touch.clientY, isDragPinned);
+
+    if (after) {
+      container.insertBefore(dropLine, after);
+    } else if (isDragPinned) {
+      const firstUnpinned = [...container.children].find(
+        el => el !== dropLine && el.draggable &&
+              !el.classList.contains('pinned') && !el.classList.contains('dragging')
+      );
+      if (firstUnpinned) container.insertBefore(dropLine, firstUnpinned);
+      else container.appendChild(dropLine);
+    } else {
+      container.appendChild(dropLine);
+    }
+  }, { passive: false });
+
+  handle.addEventListener('touchend', () => {
+    if (!touchActive) return;
+    touchActive = false;
+    if (touchClone) { touchClone.remove(); touchClone = null; }
+    item.classList.remove('dragging');
+
+    if (dropLine.parentElement) {
+      const container    = dropLine.parentElement;
+      const oldContainer = dragSrc.parentElement;
+      container.insertBefore(dragSrc, dropLine);
+      dropLine.remove();
+
+      const isSubList  = container.classList.contains('sub-task-list');
+      const wasSubList = oldContainer?.classList.contains('sub-task-list');
+      const taskName   = dragSrc.querySelector('.task-text')?.textContent
+                       || dragSrc.querySelector('.list-title')?.textContent;
+
+      if (wasSubList) { const ow = oldContainer.closest('.list-item'); if (ow) updateListCount(ow); }
+      if (isSubList)  { const nw = container.closest('.list-item');    if (nw) updateListCount(nw); }
+
+      if (wasSubList && !isSubList) {
+        const oldListName = oldContainer.closest('.list-item')?.querySelector('.list-title')?.textContent;
+        logEvent('move', `タスク「${taskName}」をリスト「${oldListName}」から外に移動`);
+      } else if (!wasSubList && isSubList) {
+        const listName = container.closest('.list-item')?.querySelector('.list-title')?.textContent;
+        logEvent('move', `タスク「${taskName}」をリスト「${listName}」に移動`);
+      } else {
+        logEvent('move', `「${taskName}」を並び替え`);
+      }
+      updateEmpty();
+      saveState();
+    } else {
+      if (dropLine.parentElement) dropLine.remove();
+    }
+    dragSrc    = null;
+    fromHandle = false;
+  });
 }
 
 function initDropZone(container) {
