@@ -483,6 +483,19 @@ h1 {
 
 .delete-btn:hover { color: #e74c3c; }
 
+/* ── Task inline edit ── */
+.task-edit-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: inherit;
+  color: inherit;
+  font-family: inherit;
+  padding: 0;
+  border-bottom: 1.5px solid #6c63ff;
+}
+
 /* ── Sub-task style overrides ── */
 .sub-task-list .task-item {
   padding: 9px 12px;

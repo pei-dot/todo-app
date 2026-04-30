@@ -110,6 +110,15 @@ function createTaskItem(text, createdAt = null, dueDate = null, dueTime = null) 
   span.className = 'task-text';
   span.textContent = text;
 
+  // ダブルクリック / ダブルタップでインライン編集
+  span.addEventListener('dblclick', () => startEditTask(span, item));
+  let lastTap = 0;
+  span.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTap < 300) { e.preventDefault(); startEditTask(span, item); }
+    lastTap = now;
+  });
+
   const dateSpan = document.createElement('span');
   dateSpan.className = 'task-date-tip';
   dateSpan.textContent = dateStr;
@@ -171,6 +180,38 @@ function createTaskItem(text, createdAt = null, dueDate = null, dueTime = null) 
 
   initDrag(item, handle);
   return item;
+}
+
+// ── Task inline edit ─────────────────────────────────────
+function startEditTask(span, item) {
+  if (selectMode) return;
+  if (span.querySelector('input')) return; // 既に編集中
+
+  const oldText = span.textContent;
+  span.textContent = '';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = oldText;
+  input.className = 'task-edit-input';
+  span.appendChild(input);
+  input.focus();
+  input.select();
+
+  const commit = () => {
+    const newText = input.value.trim();
+    span.textContent = newText || oldText;
+    if (newText && newText !== oldText) {
+      logEvent('add', `タスク「${oldText}」→「${newText}」に名前変更`);
+      saveState();
+    }
+  };
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = oldText; input.blur(); }
+  });
 }
 
 // ── Inline add form ──────────────────────────────────────
@@ -584,20 +625,14 @@ function initDrag(item, handle) {
       if (dropLine.parentElement) dropLine.remove(); return;
     }
 
-    const isDragPinned = dragSrc.classList.contains('pinned');
-    const after = getAfterEl(container, touch.clientY, isDragPinned);
-
+    const filter = groupFilter(dragSrc);
+    const after  = getAfterEl(container, touch.clientY, filter);
     if (after) {
       container.insertBefore(dropLine, after);
-    } else if (isDragPinned) {
-      const firstUnpinned = [...container.children].find(
-        el => el !== dropLine && el.draggable &&
-              !el.classList.contains('pinned') && !el.classList.contains('dragging')
-      );
-      if (firstUnpinned) container.insertBefore(dropLine, firstUnpinned);
-      else container.appendChild(dropLine);
     } else {
-      container.appendChild(dropLine);
+      const mark = groupEndMark(container, dragSrc);
+      if (mark) container.insertBefore(dropLine, mark);
+      else container.appendChild(dropLine);
     }
   }, { passive: false });
 
@@ -638,6 +673,17 @@ function initDrag(item, handle) {
     dragSrc    = null;
     fromHandle = false;
   });
+
+  // タッチが中断された場合（着信・スワイプなど）のクリーンアップ
+  handle.addEventListener('touchcancel', () => {
+    if (!touchActive) return;
+    touchActive = false;
+    if (touchClone) { touchClone.remove(); touchClone = null; }
+    item.classList.remove('dragging');
+    if (dropLine.parentElement) dropLine.remove();
+    dragSrc    = null;
+    fromHandle = false;
+  });
 }
 
 function initDropZone(container) {
@@ -647,24 +693,14 @@ function initDropZone(container) {
     if (dragSrc.classList.contains('list-item') && container !== itemList) return;
     e.stopPropagation();
 
-    const isDragPinned = dragSrc.classList.contains('pinned');
-    // 同じピン状態のアイテムの中から挿入位置を探す
-    const after = getAfterEl(container, e.clientY, isDragPinned);
-
+    const filter = groupFilter(dragSrc);
+    const after  = getAfterEl(container, e.clientY, filter);
     if (after) {
       container.insertBefore(dropLine, after);
     } else {
-      // 同グループの末尾 = ピン済みなら最初のピンなしアイテムの直前、ピンなしなら末尾
-      if (isDragPinned) {
-        const firstUnpinned = [...container.children].find(
-          el => el !== dropLine && el.draggable &&
-                !el.classList.contains('pinned') && !el.classList.contains('dragging')
-        );
-        if (firstUnpinned) container.insertBefore(dropLine, firstUnpinned);
-        else container.appendChild(dropLine);
-      } else {
-        container.appendChild(dropLine);
-      }
+      const mark = groupEndMark(container, dragSrc);
+      if (mark) container.insertBefore(dropLine, mark);
+      else container.appendChild(dropLine);
     }
   });
 
@@ -714,12 +750,37 @@ function initDropZone(container) {
   });
 }
 
-function getAfterEl(container, y, isPinned) {
-  // isPinned が指定された場合は同じピン状態のアイテムのみ候補にする
+// ドラッグ元と同じグループに属するかを判定するフィルタ関数を返す
+// グループ順: [ピン済み] → [未完了] → [完了]
+function groupFilter(src) {
+  if (src.classList.contains('pinned'))
+    return el => el.classList.contains('pinned');
+  const isDone = src.classList.contains('done');
+  return el => !el.classList.contains('pinned') && el.classList.contains('done') === isDone;
+}
+
+// ドラッグ元グループの末尾を示す「次の要素」を返す（null なら末尾に追加）
+function groupEndMark(container, src) {
+  if (src.classList.contains('pinned')) {
+    return [...container.children].find(
+      el => el !== dropLine && el.draggable && !el.classList.contains('pinned') && !el.classList.contains('dragging')
+    ) ?? null;
+  }
+  if (!src.classList.contains('done')) {
+    // 未完了グループの末尾 = 最初の非ピン完了アイテムの直前
+    return [...container.children].find(
+      el => el !== dropLine && el.draggable &&
+            !el.classList.contains('pinned') && el.classList.contains('done') &&
+            !el.classList.contains('dragging')
+    ) ?? null;
+  }
+  return null; // 完了グループは末尾に追加
+}
+
+function getAfterEl(container, y, filterFn) {
   const items = [...container.children].filter(el => {
     if (!el.draggable || el.classList.contains('dragging')) return false;
-    if (isPinned !== undefined) return el.classList.contains('pinned') === isPinned;
-    return true;
+    return !filterFn || filterFn(el);
   });
   return items.reduce((closest, child) => {
     const box    = child.getBoundingClientRect();
