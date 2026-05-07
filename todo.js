@@ -168,12 +168,16 @@ function createTaskItem(text, createdAt = null, dueDate = null, dueTime = null) 
     updateSelectBar();
   });
 
+  const taskContent = document.createElement('div');
+  taskContent.className = 'task-content';
+  taskContent.appendChild(dueBadge);
+  taskContent.appendChild(span);
+
   item.appendChild(dateSpan);
   item.appendChild(selCheck);
   item.appendChild(handle);
   item.appendChild(checkBtn);
-  item.appendChild(span);
-  item.appendChild(dueBadge);
+  item.appendChild(taskContent);
   item.appendChild(dueBtn);
   item.appendChild(pinBtn);
   item.appendChild(delBtn);
