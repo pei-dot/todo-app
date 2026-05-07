@@ -1,4 +1,4 @@
-const CACHE = 'toudou-v1';
+const CACHE = 'toudou-v2';
 const ASSETS = [
   './',
   './index.html',
