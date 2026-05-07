@@ -19,6 +19,7 @@
       <h1>とぅどぅ</h1>
       <div class="title-actions">
         <button id="selectModeBtn" class="select-mode-btn">まとめて選択</button>
+        <button id="installBtn" class="install-btn" hidden>インストール</button>
         <button id="historyBtn" class="history-btn">履歴</button>
       </div>
     </div>
@@ -69,6 +70,28 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js');
     }
+
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
+
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.hidden = false;
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBtn.hidden = true;
+    });
+
+    window.addEventListener('appinstalled', () => {
+      installBtn.hidden = true;
+      deferredPrompt = null;
+    });
   </script>
 </body>
 </html>

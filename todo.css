@@ -46,6 +46,20 @@ h1 {
 
 .history-btn:hover { background: #e0deff; }
 
+.install-btn {
+  padding: 6px 14px;
+  background: #6c63ff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.install-btn:hover { background: #574fd6; }
+
 /* ── Top input row ── */
 .input-row {
   display: flex;
