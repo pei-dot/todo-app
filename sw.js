@@ -5,7 +5,7 @@ const ASSETS = [
   './todo.css',
   './todo.js',
   './manifest.json',
-  './icon.svg'
+  './icon.png'
 ];
 
 // インストール時にキャッシュ
