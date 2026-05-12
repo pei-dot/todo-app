@@ -404,9 +404,22 @@ function updateDueBadge(badge, dueDate, dueTime) {
 // ── Custom date picker ────────────────────────────────────
 let activePickerPopup = null;
 
+function closeInlineForms(target) {
+  document.querySelectorAll('.inline-add-form').forEach(form => {
+    if (!form.contains(target) && !target.closest('.list-add-footer-btn')) {
+      form.remove();
+    }
+  });
+}
+
 document.addEventListener('mousedown', e => {
   if (activePickerPopup && !activePickerPopup.contains(e.target)) closeDatePicker();
+  closeInlineForms(e.target);
 });
+
+document.addEventListener('touchstart', e => {
+  closeInlineForms(e.target);
+}, { passive: true });
 
 function closeDatePicker() {
   if (activePickerPopup) { activePickerPopup.remove(); activePickerPopup = null; }
@@ -502,13 +515,18 @@ function openDatePicker(anchor, item, text, badge) {
   });
 
   renderGrid();
+  popup.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;';
   document.body.appendChild(popup);
   activePickerPopup = popup;
 
   const r = anchor.getBoundingClientRect();
-  const pw = 232, ph = popup.offsetHeight || 310;
-  let top  = r.bottom + 6, left = r.right - pw;
-  if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  const pw = popup.offsetWidth || 232;
+  const ph = popup.offsetHeight || 310;
+  // カレンダーの右上端をボタンの左下に合わせる
+  let left = r.left - pw;
+  let top  = r.bottom;
+  // 下にはみ出す場合はボタンの上に表示
+  if (top + ph > window.innerHeight - 8) top = r.top - ph;
   if (top < 8) top = 8;
   if (left < 4) left = 4;
   if (left + pw > window.innerWidth - 4) left = window.innerWidth - pw - 4;
@@ -520,8 +538,6 @@ function togglePin(item) {
   const container = item.parentElement;
   item.classList.toggle('pinned');
 
-  // ピン済み → ピン済みグループの末尾へ
-  // ピンなし → ピンなしグループの先頭（最後のピン済みの直後）へ
   const lastPinned = [...container.children]
     .filter(el => el !== item && el.classList.contains('pinned'))
     .at(-1);
@@ -617,7 +633,6 @@ function initDrag(item, handle) {
     touchClone.style.left = `${touch.clientX - touchOffX}px`;
     touchClone.style.top  = `${touch.clientY - touchOffY}px`;
 
-    // クローンを一時非表示にして指の下の要素を取得
     touchClone.style.visibility = 'hidden';
     const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
     touchClone.style.visibility = '';
@@ -678,7 +693,6 @@ function initDrag(item, handle) {
     fromHandle = false;
   });
 
-  // タッチが中断された場合（着信・スワイプなど）のクリーンアップ
   handle.addEventListener('touchcancel', () => {
     if (!touchActive) return;
     touchActive = false;
@@ -754,8 +768,6 @@ function initDropZone(container) {
   });
 }
 
-// ドラッグ元と同じグループに属するかを判定するフィルタ関数を返す
-// グループ順: [ピン済み] → [未完了] → [完了]
 function groupFilter(src) {
   if (src.classList.contains('pinned'))
     return el => el.classList.contains('pinned');
@@ -763,7 +775,6 @@ function groupFilter(src) {
   return el => !el.classList.contains('pinned') && el.classList.contains('done') === isDone;
 }
 
-// ドラッグ元グループの末尾を示す「次の要素」を返す（null なら末尾に追加）
 function groupEndMark(container, src) {
   if (src.classList.contains('pinned')) {
     return [...container.children].find(
@@ -771,14 +782,13 @@ function groupEndMark(container, src) {
     ) ?? null;
   }
   if (!src.classList.contains('done')) {
-    // 未完了グループの末尾 = 最初の非ピン完了アイテムの直前
     return [...container.children].find(
       el => el !== dropLine && el.draggable &&
             !el.classList.contains('pinned') && el.classList.contains('done') &&
             !el.classList.contains('dragging')
     ) ?? null;
   }
-  return null; // 完了グループは末尾に追加
+  return null;
 }
 
 function getAfterEl(container, y, filterFn) {
@@ -957,7 +967,6 @@ function execDeleteSelected() {
   for (const el of selected) {
     if (el.classList.contains('task-item')) {
       const wrapper = getParentListWrapper(el);
-      // 親リストも選択されている場合はスキップ（リスト削除時に一緒に消える）
       if (wrapper?.classList.contains('selected')) continue;
       const text = el.querySelector('.task-text').textContent;
       if (wrapper) {
