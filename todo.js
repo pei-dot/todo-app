@@ -552,15 +552,10 @@ function togglePin(item) {
 }
 
 function insertAfterPinned(container, el) {
-  const children = [...container.children];
-  const lastPinned = children.filter(c => c.classList.contains('pinned')).at(-1);
-  const startIdx = lastPinned ? children.indexOf(lastPinned) + 1 : 0;
-  // ピン留め以降で最初の完了タスクの前に挿入
-  const firstDone = children.slice(startIdx).find(
-    c => c.classList.contains('task-item') && c.classList.contains('done') && !c.classList.contains('pinned')
-  );
-  if (firstDone) container.insertBefore(el, firstDone);
-  else if (lastPinned) container.insertBefore(el, lastPinned.nextSibling);
+  const lastPinned = [...container.children]
+    .filter(c => c.classList.contains('pinned'))
+    .at(-1);
+  if (lastPinned) container.insertBefore(el, lastPinned.nextSibling);
   else container.prepend(el);
 }
 
