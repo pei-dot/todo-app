@@ -241,7 +241,11 @@ function showInlineForm(afterEl, container) {
     const t = input.value.trim();
     if (!t) return;
     const newTask = createTaskItem(t);
-    container.insertBefore(newTask, form);
+    // 完了タスクの前、なければフォームの前に挿入
+    const firstDone = [...container.children].find(
+      c => c !== form && c.classList.contains('task-item') && c.classList.contains('done')
+    );
+    container.insertBefore(newTask, firstDone || form);
     form.remove();
     const wrapper = container.closest('.list-item');
     if (wrapper) {
@@ -548,10 +552,15 @@ function togglePin(item) {
 }
 
 function insertAfterPinned(container, el) {
-  const lastPinned = [...container.children]
-    .filter(c => c.classList.contains('pinned'))
-    .at(-1);
-  if (lastPinned) container.insertBefore(el, lastPinned.nextSibling);
+  const children = [...container.children];
+  const lastPinned = children.filter(c => c.classList.contains('pinned')).at(-1);
+  const startIdx = lastPinned ? children.indexOf(lastPinned) + 1 : 0;
+  // ピン留め以降で最初の完了タスクの前に挿入
+  const firstDone = children.slice(startIdx).find(
+    c => c.classList.contains('task-item') && c.classList.contains('done') && !c.classList.contains('pinned')
+  );
+  if (firstDone) container.insertBefore(el, firstDone);
+  else if (lastPinned) container.insertBefore(el, lastPinned.nextSibling);
   else container.prepend(el);
 }
 
@@ -826,6 +835,7 @@ function logEvent(type, message) {
   const now  = new Date();
   const time = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   historyEntries.unshift({ type, message, time });
+  if (historyEntries.length > 50) historyEntries.length = 50;
   renderHistory();
   localStorage.setItem('todoHistory', JSON.stringify(historyEntries));
 }
@@ -1005,16 +1015,50 @@ document.getElementById('selAllBtn').addEventListener('click', () => {
 
 document.getElementById('selCancelBtn').addEventListener('click', exitSelectMode);
 
-selDeleteBtn.addEventListener('click', () => {
-  const n = document.querySelectorAll('.task-item.selected, .list-item.selected').length;
-  selConfirmMsg.textContent = `${n}件を削除しますか？`;
+let pendingConfirmAction = null;
+
+function showConfirm(message, action) {
+  pendingConfirmAction = action;
+  selConfirmMsg.textContent = message;
   selBarMain.hidden = true;
   selBarConfirm.hidden = false;
+}
+
+selDeleteBtn.addEventListener('click', () => {
+  const n = document.querySelectorAll('.task-item.selected, .list-item.selected').length;
+  showConfirm(`${n}件を削除しますか？`, execDeleteSelected);
 });
 
-document.getElementById('selConfirmYesBtn').addEventListener('click', execDeleteSelected);
+document.getElementById('selConfirmYesBtn').addEventListener('click', () => {
+  if (pendingConfirmAction) { pendingConfirmAction(); pendingConfirmAction = null; }
+});
+
+document.getElementById('selDeleteDoneBtn').addEventListener('click', () => {
+  const doneItems = [...document.querySelectorAll('.task-item.done')];
+  if (doneItems.length === 0) return;
+  showConfirm(`完了済み${doneItems.length}件を削除しますか？`, () => {
+    const affectedLists = new Set();
+    doneItems.forEach(el => {
+      const wrapper = getParentListWrapper(el);
+      const text = el.querySelector('.task-text').textContent;
+      if (wrapper) {
+        logEvent('delete', `リスト「${wrapper.querySelector('.list-title').textContent}」内のタスク「${text}」を削除`);
+        el.remove();
+        affectedLists.add(wrapper);
+      } else {
+        logEvent('delete', `タスク「${text}」を削除`);
+        el.remove();
+      }
+    });
+    affectedLists.forEach(w => { if (w.isConnected) updateListCount(w); });
+    updateEmpty();
+    saveState();
+    exitSelectMode();
+  });
+});
 
 document.getElementById('selConfirmNoBtn').addEventListener('click', () => {
+  pendingConfirmAction = null;
   selBarMain.hidden = false;
   selBarConfirm.hidden = true;
 });

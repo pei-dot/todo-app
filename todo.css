@@ -46,22 +46,6 @@ h1 {
 
 .history-btn:hover { background: #e0deff; }
 
-.install-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: #f0eeff;
-  color: #6c63ff;
-  border: 1.5px solid #d8d4ff;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
-  flex-shrink: 0;
-}
-
-.install-btn:hover { background: #e0deff; }
 
 /* ── Top input row ── */
 .input-row {
@@ -350,6 +334,8 @@ h1 {
   box-shadow: 0 8px 28px rgba(0,0,0,0.14);
   padding: 14px;
   width: 232px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
   z-index: 9999;
   user-select: none;
 }
@@ -887,6 +873,19 @@ h1 {
 .sel-delete-btn:hover:not(:disabled) { background: #c0392b; }
 .sel-delete-btn:disabled { background: #ddd; color: #aaa; cursor: default; }
 
+.sel-delete-done-btn {
+  padding: 5px 14px;
+  background: #f39c12;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.sel-delete-done-btn:hover { background: #d68910; }
+
 /* ── Sel-check circle ── */
 .sel-check {
   flex-shrink: 0;
@@ -968,7 +967,8 @@ h1 {
   .sel-bar-confirm { gap: 6px; padding: 8px 10px; }
   .sel-all-btn,
   .sel-cancel-btn,
-  .sel-delete-btn { padding: 6px 10px; font-size: 0.8rem; }
+  .sel-delete-btn,
+  .sel-delete-done-btn { padding: 6px 10px; font-size: 0.8rem; }
   .sel-count { font-size: 0.82rem; }
 
   /* 日付ピッカー */

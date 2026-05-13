@@ -18,13 +18,7 @@
     <div class="title-row">
       <h1>とぅどぅ</h1>
       <div class="title-actions">
-        <button id="installBtn" class="install-btn" title="アプリをインストール">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 2v8M5 7l3 3 3-3"/>
-            <path d="M2 11v1.5A1.5 1.5 0 003.5 14h9a1.5 1.5 0 001.5-1.5V11"/>
-          </svg>
-        </button>
-        <button id="selectModeBtn" class="select-mode-btn">まとめて選択</button>
+<button id="selectModeBtn" class="select-mode-btn">まとめて選択</button>
         <button id="historyBtn" class="history-btn">履歴</button>
       </div>
     </div>
@@ -48,6 +42,7 @@
         <button id="selAllBtn" class="sel-all-btn">全選択</button>
         <span id="selCount" class="sel-count">0件選択中</span>
         <button id="selDeleteBtn" class="sel-delete-btn" disabled>削除</button>
+        <button id="selDeleteDoneBtn" class="sel-delete-done-btn">完了済みを削除</button>
         <button id="selCancelBtn" class="sel-cancel-btn">キャンセル</button>
       </div>
       <div class="sel-bar-confirm" id="selBarConfirm" hidden>
@@ -76,24 +71,6 @@
       navigator.serviceWorker.register('./sw.js');
     }
 
-    let deferredPrompt;
-    const installBtn = document.getElementById('installBtn');
-
-    window.addEventListener('beforeinstallprompt', e => {
-      e.preventDefault();
-      deferredPrompt = e;
-    });
-
-    installBtn.addEventListener('click', async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      deferredPrompt = null;
-    });
-
-    window.addEventListener('appinstalled', () => {
-      deferredPrompt = null;
-    });
   </script>
 </body>
 </html>
