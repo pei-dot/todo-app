@@ -464,7 +464,7 @@ h1 {
 .pin-btn:hover { color: #6c63ff; }
 
 .task-item.pinned .pin-btn,
-.list-item.pinned .pin-btn {
+.list-item.pinned > .list-header .pin-btn {
   color: #fff;
   background: #6c63ff;
   border-radius: 50%;

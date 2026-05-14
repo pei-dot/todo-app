@@ -583,6 +583,30 @@ let fromHandle = false;
 const dropLine = document.createElement('div');
 dropLine.className = 'drop-line';
 
+// ── オートスクロール（タッチドラッグ時） ──────────────────
+let autoScrollRAF  = null;
+let lastTouchClientY = 0;
+const SCROLL_ZONE  = 80;   // 画面端からのpx
+const SCROLL_SPEED = 12;   // 最大スクロール量(px/frame)
+
+function runAutoScroll() {
+  const vh = window.innerHeight;
+  if (lastTouchClientY < SCROLL_ZONE) {
+    const r = 1 - lastTouchClientY / SCROLL_ZONE;
+    window.scrollBy(0, -Math.round(SCROLL_SPEED * r));
+  } else if (lastTouchClientY > vh - SCROLL_ZONE) {
+    const r = 1 - (vh - lastTouchClientY) / SCROLL_ZONE;
+    window.scrollBy(0, Math.round(SCROLL_SPEED * r));
+  }
+  autoScrollRAF = requestAnimationFrame(runAutoScroll);
+}
+function startAutoScroll() {
+  if (!autoScrollRAF) autoScrollRAF = requestAnimationFrame(runAutoScroll);
+}
+function stopAutoScroll() {
+  if (autoScrollRAF) { cancelAnimationFrame(autoScrollRAF); autoScrollRAF = null; }
+}
+
 document.addEventListener('mouseup', () => { fromHandle = false; });
 
 function initDrag(item, handle) {
@@ -634,6 +658,9 @@ function initDrag(item, handle) {
     e.preventDefault();
     const touch = e.touches[0];
 
+    lastTouchClientY = touch.clientY;
+    startAutoScroll();
+
     touchClone.style.left = `${touch.clientX - touchOffX}px`;
     touchClone.style.top  = `${touch.clientY - touchOffY}px`;
 
@@ -662,6 +689,7 @@ function initDrag(item, handle) {
   handle.addEventListener('touchend', () => {
     if (!touchActive) return;
     touchActive = false;
+    stopAutoScroll();
     if (touchClone) { touchClone.remove(); touchClone = null; }
     item.classList.remove('dragging');
 
@@ -700,6 +728,7 @@ function initDrag(item, handle) {
   handle.addEventListener('touchcancel', () => {
     if (!touchActive) return;
     touchActive = false;
+    stopAutoScroll();
     if (touchClone) { touchClone.remove(); touchClone = null; }
     item.classList.remove('dragging');
     if (dropLine.parentElement) dropLine.remove();
