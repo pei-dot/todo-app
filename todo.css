@@ -876,7 +876,7 @@ h1 {
 
 .sel-delete-done-btn {
   padding: 5px 14px;
-  background: #f39c12;
+  background: #20c997;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -885,7 +885,7 @@ h1 {
   white-space: nowrap;
   transition: background 0.15s;
 }
-.sel-delete-done-btn:hover { background: #d68910; }
+.sel-delete-done-btn:hover { background: #12b886; }
 
 /* ── Sel-check circle ── */
 .sel-check {
@@ -922,11 +922,29 @@ h1 {
 .select-mode .drag-handle { display: none; }
 
 .select-mode .check-btn,
-.select-mode .task-due,
 .select-mode .due-btn,
 .select-mode .pin-btn,
 .select-mode .delete-btn,
-.select-mode .list-delete-btn { pointer-events: none; opacity: 0; }
+.select-mode .list-delete-btn {
+  pointer-events: none;
+  opacity: 0;
+  flex: 0 0 0 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+.select-mode .task-due {
+  pointer-events: none;
+  opacity: 0;
+  height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
 
 .select-mode .task-item { cursor: pointer; }
 .select-mode .list-header { cursor: pointer; }
@@ -1048,6 +1066,20 @@ h1 {
   filter: brightness(0) invert(1);
 }
 
+/* ── List title inline edit ── */
+.list-title-edit-input {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-bottom: 2px solid #6c63ff;
+  outline: none;
+  background: transparent;
+  padding: 1px 2px;
+  min-width: 0;
+  color: #1a1a2e;
+}
+
 /* ── Calendar view ── */
 .calendar-view {
   margin-top: 4px;
@@ -1056,11 +1088,13 @@ h1 {
 .cal-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   margin-bottom: 12px;
 }
 
 .cal-month-label {
+  flex: 1;
+  text-align: center;
   font-size: 1.05rem;
   font-weight: 700;
   color: #1a1a2e;
@@ -1081,6 +1115,32 @@ h1 {
   transition: background 0.15s;
 }
 .cal-nav-btn:hover { background: #e0deff; }
+
+.cal-view-toggle-btn {
+  padding: 5px 10px;
+  background: #f0eeff;
+  color: #6c63ff;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.cal-view-toggle-btn:hover { background: #e0deff; }
+.cal-view-toggle-btn.active {
+  background: #6c63ff;
+  color: #fff;
+  border-color: #6c63ff;
+}
+
+/* 週表示：セルを縦長に */
+.cal-grid--week {
+  grid-template-columns: repeat(7, 1fr);
+}
+.cal-grid--week .cal-cell {
+  min-height: 120px;
+}
 
 .cal-weekdays {
   display: grid;

@@ -308,6 +308,15 @@ function createListItem(title) {
   titleSpan.className = 'list-title';
   titleSpan.textContent = title;
 
+  // ダブルクリック／ダブルタップでリスト名編集
+  titleSpan.addEventListener('dblclick', e => { e.stopPropagation(); startListTitleEdit(titleSpan, wrapper); });
+  let lastTapList = 0;
+  titleSpan.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTapList < 300) { e.preventDefault(); e.stopPropagation(); startListTitleEdit(titleSpan, wrapper); }
+    lastTapList = now;
+  });
+
   const countBadge = document.createElement('span');
   countBadge.className = 'list-count';
   countBadge.textContent = '0';
@@ -665,6 +674,36 @@ function applyListColor(listEl, color) {
     delete listEl.dataset.color;
     if (btn) btn.style.background = '';
   }
+}
+
+// ── List title edit ───────────────────────────────────────
+function startListTitleEdit(titleSpan, wrapper) {
+  const original = titleSpan.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'list-title-edit-input';
+  input.value = original;
+
+  const save = () => {
+    const newText = input.value.trim() || original;
+    titleSpan.textContent = newText;
+    input.replaceWith(titleSpan);
+    if (newText !== original) {
+      logEvent('edit', `リスト「${original}」を「${newText}」に変更`);
+      saveState();
+    }
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = original; input.blur(); }
+  });
+  input.addEventListener('click', e => e.stopPropagation());
+
+  titleSpan.replaceWith(input);
+  input.focus();
+  input.select();
 }
 
 // ── Helpers ──────────────────────────────────────────────
@@ -1198,8 +1237,10 @@ document.getElementById('selConfirmNoBtn').addEventListener('click', () => {
 });
 
 // ── Calendar Mode ────────────────────────────────────────
-let calViewYear  = new Date().getFullYear();
-let calViewMonth = new Date().getMonth();
+let calViewYear   = new Date().getFullYear();
+let calViewMonth  = new Date().getMonth();
+let calWeekMode   = false;   // true = 週表示
+let calWeekStart  = null;    // 週表示の起点日（Dateオブジェクト）
 
 const calendarView  = document.getElementById('calendarView');
 const calMonthLabel = document.getElementById('calMonthLabel');
@@ -1216,11 +1257,38 @@ calModeBtn.addEventListener('click', () => {
 });
 
 document.getElementById('calPrevBtn').addEventListener('click', () => {
-  if (--calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+  if (calWeekMode) {
+    calWeekStart = new Date(calWeekStart);
+    calWeekStart.setDate(calWeekStart.getDate() - 7);
+  } else {
+    if (--calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+  }
   renderCalendar();
 });
 document.getElementById('calNextBtn').addEventListener('click', () => {
-  if (++calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+  if (calWeekMode) {
+    calWeekStart = new Date(calWeekStart);
+    calWeekStart.setDate(calWeekStart.getDate() + 7);
+  } else {
+    if (++calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+  }
+  renderCalendar();
+});
+document.getElementById('calViewToggleBtn').addEventListener('click', () => {
+  calWeekMode = !calWeekMode;
+  const btn = document.getElementById('calViewToggleBtn');
+  if (calWeekMode) {
+    // 今週の日曜日を起点に
+    const today = new Date();
+    calWeekStart = new Date(today);
+    calWeekStart.setDate(today.getDate() - today.getDay());
+    btn.textContent = '月';
+    btn.classList.add('active');
+    document.querySelector('.cal-weekdays').hidden = false;
+  } else {
+    btn.textContent = '週';
+    btn.classList.remove('active');
+  }
   renderCalendar();
 });
 document.getElementById('calDetailCloseBtn').addEventListener('click', () => {
@@ -1230,6 +1298,9 @@ document.getElementById('calDetailCloseBtn').addEventListener('click', () => {
 function enterCalendarMode() {
   calViewYear  = new Date().getFullYear();
   calViewMonth = new Date().getMonth();
+  calWeekMode  = false;
+  document.getElementById('calViewToggleBtn').textContent = '週';
+  document.getElementById('calViewToggleBtn').classList.remove('active');
   calModeBtn.classList.add('active');
   mainContainer.classList.add('cal-mode');
   // セレクトモードが有効なら解除
@@ -1301,12 +1372,8 @@ function applyTaskOrder(date, tasks) {
 
 function renderCalendar() {
   const today = new Date();
-  calMonthLabel.textContent = `${calViewYear}年${calViewMonth + 1}月`;
   calGrid.innerHTML = '';
   calDayDetail.hidden = true;
-
-  const firstDow   = new Date(calViewYear, calViewMonth, 1).getDay();
-  const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
 
   // 期限付きタスクを日付別に整理（カスタム順序を適用）
   const tasksByDate = {};
@@ -1318,7 +1385,21 @@ function renderCalendar() {
     tasksByDate[date] = applyTaskOrder(date, tasksByDate[date]);
   });
 
-  // 先頭の空セル
+  calGrid.classList.toggle('cal-grid--week', calWeekMode);
+  if (calWeekMode) {
+    renderWeekCalendar(today, tasksByDate);
+  } else {
+    renderMonthCalendar(today, tasksByDate);
+  }
+}
+
+function renderMonthCalendar(today, tasksByDate) {
+  calMonthLabel.textContent = `${calViewYear}年${calViewMonth + 1}月`;
+  document.querySelector('.cal-weekdays').hidden = false;
+
+  const firstDow    = new Date(calViewYear, calViewMonth, 1).getDay();
+  const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+
   for (let i = 0; i < firstDow; i++) {
     const blank = document.createElement('div');
     blank.className = 'cal-cell cal-cell--empty';
@@ -1331,40 +1412,59 @@ function renderCalendar() {
     const isToday = calViewYear === today.getFullYear()
                  && calViewMonth === today.getMonth()
                  && d === today.getDate();
-
-    const cell = document.createElement('div');
-    cell.className = 'cal-cell';
-
-    // 日付番号
-    const numEl = document.createElement('span');
-    numEl.className = 'cal-date-num'
-      + (dow === 0 ? ' cal-sun' : dow === 6 ? ' cal-sat' : '')
-      + (isToday ? ' cal-today' : '');
-    numEl.textContent = d;
-    cell.appendChild(numEl);
-
-    const tasks = tasksByDate[dateStr] || [];
-    const MAX_SHOW = 2;
-    tasks.slice(0, MAX_SHOW).forEach(task => {
-      const chip = document.createElement('div');
-      chip.className = 'cal-task-chip' + (task.done ? ' cal-task-chip--done' : '');
-      if (!task.done && task.color) chip.style.background = task.color;
-      chip.textContent = task.text;
-      cell.appendChild(chip);
-    });
-    if (tasks.length > MAX_SHOW) {
-      const more = document.createElement('div');
-      more.className = 'cal-task-more';
-      more.textContent = `他${tasks.length - MAX_SHOW}件`;
-      cell.appendChild(more);
-    }
-    if (tasks.length > 0) cell.classList.add('cal-cell--has-tasks');
-    // タスクの有無に関わらず全セルをクリック可能
-    cell.classList.add('cal-cell--clickable');
-    cell.addEventListener('click', () => showDayDetail(d, dateStr, tasks));
-
-    calGrid.appendChild(cell);
+    calGrid.appendChild(buildCell(d, dateStr, dow, isToday, tasksByDate[dateStr] || [], 2));
   }
+}
+
+function renderWeekCalendar(today, tasksByDate) {
+  const ws = new Date(calWeekStart);
+  const we = new Date(ws); we.setDate(ws.getDate() + 6);
+  const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
+  calMonthLabel.textContent = `${ws.getFullYear()}年 ${fmt(ws)}〜${fmt(we)}`;
+  document.querySelector('.cal-weekdays').hidden = false;
+
+  // 週表示は縦長セル（7列1行）
+  calGrid.classList.add('cal-grid--week');
+  for (let i = 0; i < 7; i++) {
+    const cur = new Date(ws); cur.setDate(ws.getDate() + i);
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+    const dow     = cur.getDay();
+    const isToday = dateStr === `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    calGrid.appendChild(buildCell(cur.getDate(), dateStr, dow, isToday, tasksByDate[dateStr] || [], 5));
+  }
+}
+
+function buildCell(d, dateStr, dow, isToday, tasks, maxShow) {
+  const cell = document.createElement('div');
+  cell.className = 'cal-cell';
+
+  const numEl = document.createElement('span');
+  numEl.className = 'cal-date-num'
+    + (dow === 0 ? ' cal-sun' : dow === 6 ? ' cal-sat' : '')
+    + (isToday ? ' cal-today' : '');
+  numEl.textContent = d;
+  cell.appendChild(numEl);
+
+  tasks.slice(0, maxShow).forEach(task => {
+    const chip = document.createElement('div');
+    chip.className = 'cal-task-chip' + (task.done ? ' cal-task-chip--done' : '');
+    if (!task.done && task.color) chip.style.background = task.color;
+    chip.textContent = task.text;
+    cell.appendChild(chip);
+  });
+  if (tasks.length > maxShow) {
+    const more = document.createElement('div');
+    more.className = 'cal-task-more';
+    more.textContent = `他${tasks.length - maxShow}件`;
+    cell.appendChild(more);
+  }
+  if (tasks.length > 0) cell.classList.add('cal-cell--has-tasks');
+  cell.classList.add('cal-cell--clickable');
+  cell.addEventListener('click', () => showDayDetail(d, dateStr, tasks));
+  return cell;
 }
 
 let currentDetailDate = null;
