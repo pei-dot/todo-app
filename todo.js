@@ -332,11 +332,22 @@ function createListItem(title) {
   pinBtn.innerHTML = PIN_SVG;
   pinBtn.addEventListener('click', e => { e.stopPropagation(); togglePin(wrapper); });
 
+  const colorBtn = document.createElement('button');
+  colorBtn.className = 'list-color-btn';
+  colorBtn.setAttribute('aria-label', '色を設定');
+  colorBtn.setAttribute('type', 'button');
+  colorBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (activeColorPopup) { closeColorPicker(); }
+    else { openColorPicker(colorBtn, wrapper); }
+  });
+
   header.appendChild(listSelCheck);
   header.appendChild(dragHandle);
   header.appendChild(toggleIcon);
   header.appendChild(titleSpan);
   header.appendChild(countBadge);
+  header.appendChild(colorBtn);
   header.appendChild(pinBtn);
   header.appendChild(delBtn);
 
@@ -416,12 +427,20 @@ function closeInlineForms(target) {
   });
 }
 
+function shouldCloseColorPicker(target) {
+  return activeColorPopup
+    && !activeColorPopup.contains(target)
+    && !target.closest('.list-color-btn');
+}
+
 document.addEventListener('mousedown', e => {
   if (activePickerPopup && !activePickerPopup.contains(e.target)) closeDatePicker();
+  if (shouldCloseColorPicker(e.target)) closeColorPicker();
   closeInlineForms(e.target);
 });
 
 document.addEventListener('touchstart', e => {
+  if (shouldCloseColorPicker(e.target)) closeColorPicker();
   closeInlineForms(e.target);
 }, { passive: true });
 
@@ -557,6 +576,95 @@ function insertAfterPinned(container, el) {
     .at(-1);
   if (lastPinned) container.insertBefore(el, lastPinned.nextSibling);
   else container.prepend(el);
+}
+
+// ── List color picker ─────────────────────────────────────
+const BASE_COLORS = ['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#74c0fc','#b197fc'];
+let activeColorPopup = null;
+let colorTargetEl    = null;  // 現在編集中のリスト要素
+
+function closeColorPicker() {
+  if (activeColorPopup) { activeColorPopup.remove(); activeColorPopup = null; colorTargetEl = null; }
+}
+
+function openColorPicker(anchor, listEl) {
+  const popup = document.createElement('div');
+  popup.className = 'color-popup';
+
+  // 6色スウォッチ
+  const grid = document.createElement('div');
+  grid.className = 'color-swatch-grid';
+  BASE_COLORS.forEach(color => {
+    const sw = document.createElement('button');
+    sw.setAttribute('type', 'button');
+    sw.className = 'color-swatch' + (listEl.dataset.color === color ? ' selected' : '');
+    sw.style.background = color;
+    sw.addEventListener('click', e => {
+      e.stopPropagation();
+      applyListColor(listEl, color);
+      popup.querySelectorAll('.color-swatch').forEach((s, i) => s.classList.toggle('selected', BASE_COLORS[i] === color));
+      saveState();
+    });
+    grid.appendChild(sw);
+  });
+
+  // カスタムカラー
+  const customRow = document.createElement('div');
+  customRow.className = 'color-custom-row';
+  const customLabel = document.createElement('span');
+  customLabel.className = 'color-custom-label';
+  customLabel.textContent = 'カスタム';
+  const customInput = document.createElement('input');
+  customInput.type = 'color';
+  customInput.className = 'color-custom-input';
+  customInput.value = listEl.dataset.color || '#6c63ff';
+  customInput.addEventListener('input', e => {
+    e.stopPropagation();
+    applyListColor(listEl, customInput.value);
+    popup.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    saveState();
+  });
+  customRow.append(customLabel, customInput);
+
+  // クリア
+  const clearBtn = document.createElement('button');
+  clearBtn.setAttribute('type', 'button');
+  clearBtn.className = 'color-clear-btn';
+  clearBtn.textContent = 'クリア';
+  clearBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    applyListColor(listEl, null);
+    closeColorPicker();
+    saveState();
+  });
+
+  popup.append(grid, customRow, clearBtn);
+  document.body.appendChild(popup);
+  activeColorPopup = popup;
+  colorTargetEl    = listEl;
+
+  // 位置計算
+  const r  = anchor.getBoundingClientRect();
+  const pw = popup.offsetWidth  || 188;
+  const ph = popup.offsetHeight || 130;
+  let left = r.right - pw;
+  let top  = r.bottom + 4;
+  if (top + ph > window.innerHeight - 8) top = r.top - ph - 4;
+  if (left < 4) left = 4;
+  if (left + pw > window.innerWidth - 4) left = window.innerWidth - pw - 4;
+  popup.style.left = `${left}px`;
+  popup.style.top  = `${top}px`;
+}
+
+function applyListColor(listEl, color) {
+  const btn = listEl.querySelector('.list-color-btn');
+  if (color) {
+    listEl.dataset.color = color;
+    if (btn) btn.style.background = color;
+  } else {
+    delete listEl.dataset.color;
+    if (btn) btn.style.background = '';
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────
@@ -918,6 +1026,7 @@ function getState() {
         title: el.querySelector('.list-title').textContent,
         collapsed: el.classList.contains('collapsed'),
         pinned: el.classList.contains('pinned'),
+        color: el.dataset.color || null,
         tasks
       });
     }
@@ -944,6 +1053,7 @@ function loadState() {
         const el = createListItem(item.title);
         if (item.collapsed) el.classList.add('collapsed');
         if (item.pinned)    el.classList.add('pinned');
+        if (item.color) applyListColor(el, item.color);
         for (const task of item.tasks) {
           const taskEl = createTaskItem(task.text, task.createdAt, task.dueDate, task.dueTime);
           if (task.done)   taskEl.classList.add('done');
@@ -1087,9 +1197,516 @@ document.getElementById('selConfirmNoBtn').addEventListener('click', () => {
   selBarConfirm.hidden = true;
 });
 
+// ── Calendar Mode ────────────────────────────────────────
+let calViewYear  = new Date().getFullYear();
+let calViewMonth = new Date().getMonth();
+
+const calendarView  = document.getElementById('calendarView');
+const calMonthLabel = document.getElementById('calMonthLabel');
+const calGrid       = document.getElementById('calGrid');
+const calDayDetail  = document.getElementById('calDayDetail');
+const calDetailDate = document.getElementById('calDetailDate');
+const calDetailList = document.getElementById('calDetailList');
+const calModeBtn    = document.getElementById('calendarModeBtn');
+
+calModeBtn.addEventListener('click', () => {
+  const active = calendarView.hidden;
+  if (active) enterCalendarMode();
+  else exitCalendarMode();
+});
+
+document.getElementById('calPrevBtn').addEventListener('click', () => {
+  if (--calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+  renderCalendar();
+});
+document.getElementById('calNextBtn').addEventListener('click', () => {
+  if (++calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+  renderCalendar();
+});
+document.getElementById('calDetailCloseBtn').addEventListener('click', () => {
+  calDayDetail.hidden = true;
+});
+
+function enterCalendarMode() {
+  calViewYear  = new Date().getFullYear();
+  calViewMonth = new Date().getMonth();
+  calModeBtn.classList.add('active');
+  mainContainer.classList.add('cal-mode');
+  // セレクトモードが有効なら解除
+  if (selectMode) exitSelectMode();
+  closeDatePicker();
+  calendarView.hidden = false;
+  calDayDetail.hidden = true;
+  renderCalendar();
+}
+
+function exitCalendarMode() {
+  calModeBtn.classList.remove('active');
+  mainContainer.classList.remove('cal-mode');
+  calendarView.hidden = true;
+  updateEmpty();
+}
+
+// ── カレンダーのみタスク ──────────────────────────────────
+let calOnlyTasks = [];
+
+function saveCalOnlyTasks() {
+  localStorage.setItem('calOnlyTasks', JSON.stringify(calOnlyTasks));
+}
+function loadCalOnlyTasks() {
+  try {
+    const raw = localStorage.getItem('calOnlyTasks');
+    if (raw) calOnlyTasks = JSON.parse(raw);
+  } catch(e) {}
+}
+
+function getAllDueTasks() {
+  const tasks = [];
+  document.querySelectorAll('#itemList .task-item').forEach(el => {
+    if (el.dataset.due) {
+      const listEl = el.closest('.list-item');
+      tasks.push({
+        text: el.querySelector('.task-text').textContent,
+        due: el.dataset.due,
+        dueTime: el.dataset.dueTime || '',
+        done: el.classList.contains('done'),
+        calOnly: false,
+        color: listEl?.dataset.color || null,
+        domEl: el   // 削除用にDOM参照を保持
+      });
+    }
+  });
+  // カレンダーのみタスクを追加
+  calOnlyTasks.forEach((t, i) => tasks.push({ ...t, calOnly: true, calOnlyIndex: i }));
+  return tasks;
+}
+
+// 日付ごとのカスタム順序 { 'YYYY-MM-DD': ['key1', 'key2', ...] }
+const taskOrderByDate = {};
+
+function taskKey(t) {
+  return `${t.calOnly ? 'c' : 'r'}|${t.text}|${t.dueTime}`;
+}
+
+function applyTaskOrder(date, tasks) {
+  const order = taskOrderByDate[date];
+  if (!order) return tasks;
+  return [...tasks].sort((a, b) => {
+    const ai = order.indexOf(taskKey(a));
+    const bi = order.indexOf(taskKey(b));
+    if (ai === -1 && bi === -1) return 0;
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+}
+
+function renderCalendar() {
+  const today = new Date();
+  calMonthLabel.textContent = `${calViewYear}年${calViewMonth + 1}月`;
+  calGrid.innerHTML = '';
+  calDayDetail.hidden = true;
+
+  const firstDow   = new Date(calViewYear, calViewMonth, 1).getDay();
+  const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+
+  // 期限付きタスクを日付別に整理（カスタム順序を適用）
+  const tasksByDate = {};
+  getAllDueTasks().forEach(task => {
+    tasksByDate[task.due] = tasksByDate[task.due] || [];
+    tasksByDate[task.due].push(task);
+  });
+  Object.keys(tasksByDate).forEach(date => {
+    tasksByDate[date] = applyTaskOrder(date, tasksByDate[date]);
+  });
+
+  // 先頭の空セル
+  for (let i = 0; i < firstDow; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'cal-cell cal-cell--empty';
+    calGrid.appendChild(blank);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${calViewYear}-${String(calViewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dow     = (firstDow + d - 1) % 7;
+    const isToday = calViewYear === today.getFullYear()
+                 && calViewMonth === today.getMonth()
+                 && d === today.getDate();
+
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+
+    // 日付番号
+    const numEl = document.createElement('span');
+    numEl.className = 'cal-date-num'
+      + (dow === 0 ? ' cal-sun' : dow === 6 ? ' cal-sat' : '')
+      + (isToday ? ' cal-today' : '');
+    numEl.textContent = d;
+    cell.appendChild(numEl);
+
+    const tasks = tasksByDate[dateStr] || [];
+    const MAX_SHOW = 2;
+    tasks.slice(0, MAX_SHOW).forEach(task => {
+      const chip = document.createElement('div');
+      chip.className = 'cal-task-chip' + (task.done ? ' cal-task-chip--done' : '');
+      if (!task.done && task.color) chip.style.background = task.color;
+      chip.textContent = task.text;
+      cell.appendChild(chip);
+    });
+    if (tasks.length > MAX_SHOW) {
+      const more = document.createElement('div');
+      more.className = 'cal-task-more';
+      more.textContent = `他${tasks.length - MAX_SHOW}件`;
+      cell.appendChild(more);
+    }
+    if (tasks.length > 0) cell.classList.add('cal-cell--has-tasks');
+    // タスクの有無に関わらず全セルをクリック可能
+    cell.classList.add('cal-cell--clickable');
+    cell.addEventListener('click', () => showDayDetail(d, dateStr, tasks));
+
+    calGrid.appendChild(cell);
+  }
+}
+
+let currentDetailDate = null;
+let currentDetailDay  = null;
+
+function showDayDetail(day, dateStr, tasks) {
+  currentDetailDate = dateStr;
+  currentDetailDay  = day;
+  calDetailDate.textContent = `${calViewYear}年${calViewMonth + 1}月${day}日`;
+  document.getElementById('calAddForm').hidden = true;
+  document.getElementById('calDetailAddBtn').classList.remove('active');
+  renderDetailList(sortDetailTasks(tasks));
+  calDayDetail.hidden = false;
+}
+
+function renderDetailList(tasks) {
+  calDetailList.innerHTML = '';
+  if (tasks.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'cal-detail-empty';
+    empty.textContent = 'タスクはありません';
+    calDetailList.appendChild(empty);
+    return;
+  }
+
+  let detailDragSrcIdx = null;
+  let touchDragClone   = null;
+  let touchDragOffY    = 0;
+
+  tasks.forEach((task, i) => {
+    const item = document.createElement('div');
+    item.className = 'cal-detail-item'
+      + (task.done    ? ' cal-detail-item--done'     : '')
+      + (task.calOnly ? ' cal-detail-item--cal-only' : '');
+    item.dataset.detailIndex = i;
+
+    // グリップ
+    const grip = document.createElement('span');
+    grip.className = 'cal-detail-grip';
+    grip.innerHTML = GRIP_SVG;
+
+    // サークル
+    const circle = document.createElement('span');
+    circle.className = 'cal-detail-circle';
+    if (!task.done && task.color) circle.style.background = task.color;
+
+    // テキスト（ダブルクリック/ダブルタップでリネーム）
+    const textEl = document.createElement('span');
+    textEl.className = 'cal-detail-text';
+    textEl.textContent = task.text;
+    textEl.addEventListener('dblclick', () => startCalDetailRename(textEl, task));
+    let lastTapDetail = 0;
+    textEl.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - lastTapDetail < 300) { e.preventDefault(); startCalDetailRename(textEl, task); }
+      lastTapDetail = now;
+    });
+
+    item.append(grip, circle, textEl);
+
+    if (task.dueTime) {
+      const timeEl = document.createElement('span');
+      timeEl.className = 'cal-detail-time';
+      timeEl.textContent = task.dueTime;
+      item.appendChild(timeEl);
+    }
+    if (task.calOnly) {
+      const badge = document.createElement('span');
+      badge.className = 'cal-detail-cal-only-badge';
+      badge.textContent = 'カレンダーのみ';
+      item.appendChild(badge);
+    }
+
+    // 削除ボタン
+    const delBtn = document.createElement('button');
+    delBtn.className = 'cal-detail-del-btn';
+    delBtn.setAttribute('type', 'button');
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const allTasks = getAllDueTasks().filter(t => t.due === currentDetailDate);
+      const confirmContainer = allTasks.length === 1 ? calDetailList : item;
+      confirmDelete(confirmContainer, `タスク「${task.text}」`, () => {
+        if (task.calOnly) {
+          calOnlyTasks.splice(task.calOnlyIndex, 1);
+          saveCalOnlyTasks();
+          logEvent('delete', `タスク「${task.text}」を削除`);
+        } else {
+          const wrapper = getParentListWrapper(task.domEl);
+          logEvent('delete', `タスク「${task.text}」を削除`);
+          task.domEl.remove();
+          if (wrapper) updateListCount(wrapper);
+          else updateEmpty();
+          saveState();
+        }
+        const updated = sortDetailTasks(getAllDueTasks().filter(t => t.due === currentDetailDate));
+        renderCalendar();
+        renderDetailList(updated);
+        calDayDetail.hidden = false;
+      });
+    });
+    item.appendChild(delBtn);
+
+    // ── HTML5ドラッグ（PC） ──
+    item.draggable = true;
+    item.addEventListener('dragstart', e => {
+      detailDragSrcIdx = i;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => item.classList.add('cal-detail-dragging'), 0);
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('cal-detail-dragging');
+      calDetailList.querySelectorAll('.cal-detail-drop-line').forEach(el => el.remove());
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      calDetailList.querySelectorAll('.cal-detail-drop-line').forEach(el => el.remove());
+      const rect = item.getBoundingClientRect();
+      const line = document.createElement('div');
+      line.className = 'cal-detail-drop-line';
+      if (e.clientY < rect.top + rect.height / 2) calDetailList.insertBefore(line, item);
+      else calDetailList.insertBefore(line, item.nextSibling);
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      calDetailList.querySelectorAll('.cal-detail-drop-line').forEach(el => el.remove());
+      if (detailDragSrcIdx === null || detailDragSrcIdx === i) return;
+      reorderDetailTasks(tasks, detailDragSrcIdx, i);
+    });
+
+    // ── タッチドラッグ（モバイル） ──
+    grip.addEventListener('touchstart', e => {
+      e.preventDefault();
+      detailDragSrcIdx = i;
+      const touch = e.touches[0];
+      const rect = item.getBoundingClientRect();
+      touchDragOffY = touch.clientY - rect.top;
+      touchDragClone = item.cloneNode(true);
+      touchDragClone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;`
+        + `width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:1000;`
+        + `border-radius:8px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.15);`;
+      document.body.appendChild(touchDragClone);
+      item.classList.add('cal-detail-dragging');
+    }, { passive: false });
+
+    grip.addEventListener('touchmove', e => {
+      if (detailDragSrcIdx === null) return;
+      e.preventDefault();
+      touchDragClone.style.top = `${e.touches[0].clientY - touchDragOffY}px`;
+    }, { passive: false });
+
+    grip.addEventListener('touchend', e => {
+      if (detailDragSrcIdx === null) return;
+      const touch = e.changedTouches[0];
+      if (touchDragClone) { touchDragClone.remove(); touchDragClone = null; }
+      item.classList.remove('cal-detail-dragging');
+      const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetItem = elBelow?.closest('[data-detail-index]');
+      if (targetItem && targetItem !== item) {
+        const toIdx = parseInt(targetItem.dataset.detailIndex);
+        if (!isNaN(toIdx)) reorderDetailTasks(tasks, i, toIdx);
+      }
+      detailDragSrcIdx = null;
+    });
+
+    grip.addEventListener('touchcancel', () => {
+      if (touchDragClone) { touchDragClone.remove(); touchDragClone = null; }
+      item.classList.remove('cal-detail-dragging');
+      detailDragSrcIdx = null;
+    });
+
+    calDetailList.appendChild(item);
+  });
+}
+
+function startCalDetailRename(textEl, task) {
+  const original = task.text;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'cal-detail-edit-input';
+  input.value = original;
+
+  const save = () => {
+    const newText = input.value.trim() || original;
+    if (newText !== original) {
+      if (task.calOnly) {
+        calOnlyTasks[task.calOnlyIndex].text = newText;
+        saveCalOnlyTasks();
+      } else if (task.domEl) {
+        task.domEl.querySelector('.task-text').textContent = newText;
+        saveState();
+      }
+      logEvent('edit', `「${original}」を「${newText}」に変更`);
+      textEl.textContent = newText;
+      renderCalendar();
+    }
+    input.replaceWith(textEl);
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = original; input.blur(); }
+  });
+
+  textEl.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+function reorderDetailTasks(tasks, fromIndex, toIndex) {
+  const newTasks = [...tasks];
+  const [moved] = newTasks.splice(fromIndex, 1);
+  newTasks.splice(toIndex, 0, moved);
+
+  // calOnlyタスクの順序を更新
+  const calOnlyOrdered = newTasks.filter(t => t.calOnly);
+  if (calOnlyOrdered.length > 0) {
+    const other     = calOnlyTasks.filter(t => t.due !== currentDetailDate);
+    const reordered = calOnlyOrdered.map(t => ({ ...calOnlyTasks[t.calOnlyIndex] }));
+    calOnlyTasks.length = 0;
+    calOnlyTasks.push(...other, ...reordered);
+    saveCalOnlyTasks();
+  }
+
+  // 通常タスクの順序を更新（同じ親コンテナ内のみ）
+  const regularOrdered = newTasks.filter(t => !t.calOnly && t.domEl);
+  if (regularOrdered.length > 1) {
+    const parents = new Set(regularOrdered.map(t => t.domEl.parentElement));
+    if (parents.size === 1) {
+      const container = [...parents][0];
+      regularOrdered.forEach(t => container.appendChild(t.domEl));
+      saveState();
+    }
+  }
+
+  // カスタム順序を保存
+  const sorted = sortDetailTasks(newTasks);
+  taskOrderByDate[currentDetailDate] = sorted.map(taskKey);
+
+  renderCalendar();
+  renderDetailList(sorted);
+  calDayDetail.hidden = false;
+}
+
+function sortDetailTasks(tasks) {
+  return [...tasks].sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
+}
+
+// ── カレンダー詳細パネル操作 ─────────────────────────────
+document.getElementById('calDetailAddBtn').addEventListener('click', () => {
+  const form = document.getElementById('calAddForm');
+  const addBtn = document.getElementById('calDetailAddBtn');
+  if (!form.hidden) {
+    form.hidden = true;
+    addBtn.classList.remove('active');
+    return;
+  }
+  // リスト一覧をセレクトに反映
+  const select = document.getElementById('calAddTarget');
+  [...select.options].forEach(o => {
+    if (o.value !== 'none' && o.value !== 'cal-only') o.remove();
+  });
+  const calOnlyOpt = select.querySelector('option[value="cal-only"]');
+  document.querySelectorAll('#itemList .list-item').forEach((el, i) => {
+    const opt = document.createElement('option');
+    opt.value = `list-${i}`;
+    opt.textContent = el.querySelector('.list-title').textContent;
+    select.insertBefore(opt, calOnlyOpt);
+  });
+  form.hidden = false;
+  addBtn.classList.add('active');
+  document.getElementById('calAddInput').focus();
+});
+
+document.getElementById('calAddCancel').addEventListener('click', () => {
+  document.getElementById('calAddForm').hidden = true;
+  document.getElementById('calDetailAddBtn').classList.remove('active');
+});
+
+document.getElementById('calAddInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitCalAdd();
+  if (e.key === 'Escape') document.getElementById('calAddForm').hidden = true;
+});
+
+document.getElementById('calAddSubmit').addEventListener('click', submitCalAdd);
+
+function submitCalAdd() {
+  const input  = document.getElementById('calAddInput');
+  const select = document.getElementById('calAddTarget');
+  const text   = input.value.trim();
+  if (!text || !currentDetailDate) return;
+
+  const target = select.value;
+  const due    = currentDetailDate;
+
+  if (target === 'cal-only') {
+    calOnlyTasks.push({ text, due, dueTime: '', done: false });
+    saveCalOnlyTasks();
+    logEvent('add', `タスク「${text}」をカレンダーに追加`);
+  } else if (target === 'none') {
+    const el = createTaskItem(text);
+    el.dataset.due = due;
+    updateDueBadge(el.querySelector('.task-due'), due, '');
+    insertAfterPinned(itemList, el);
+    saveState();
+    logEvent('add', `タスク「${text}」を追加`);
+  } else {
+    const idx    = parseInt(target.replace('list-', ''));
+    const listEl = [...document.querySelectorAll('#itemList .list-item')][idx];
+    if (listEl) {
+      const taskEl = createTaskItem(text);
+      taskEl.dataset.due = due;
+      updateDueBadge(taskEl.querySelector('.task-due'), due, '');
+      const subList   = listEl._subList;
+      const firstDone = [...subList.children].find(
+        c => c.classList.contains('task-item') && c.classList.contains('done')
+      );
+      if (firstDone) subList.insertBefore(taskEl, firstDone);
+      else subList.appendChild(taskEl);
+      updateListCount(listEl);
+      saveState();
+      logEvent('add', `タスク「${text}」をリスト「${listEl.querySelector('.list-title').textContent}」に追加`);
+    }
+  }
+
+  input.value = '';
+  document.getElementById('calAddForm').hidden = true;
+  document.getElementById('calDetailAddBtn').classList.remove('active');
+
+  // パネルとカレンダーを再描画
+  const updatedTasks = sortDetailTasks(getAllDueTasks().filter(t => t.due === due));
+  renderCalendar();
+  renderDetailList(updatedTasks);
+  // 閉じたパネルを再表示
+  calDayDetail.hidden = false;
+}
+
 // ── Init ─────────────────────────────────────────────────
 initDropZone(itemList);
 loadState();
+loadCalOnlyTasks();
 
 try {
   const savedHistory = localStorage.getItem('todoHistory');

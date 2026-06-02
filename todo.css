@@ -1,4 +1,5 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
 
 body {
   font-family: 'Segoe UI', sans-serif;
@@ -934,6 +935,499 @@ h1 {
 .select-mode .list-item.selected > .list-header { background: #e8e4ff; }
 .list-item.selected { border-color: #b8b0f5; }
 
+/* ── List color button ── */
+.list-color-btn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.12);
+  background: #ddd;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s;
+}
+.list-color-btn:hover { transform: scale(1.25); }
+
+/* ── Color popup ── */
+.color-popup {
+  position: fixed;
+  background: #fff;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.13);
+  padding: 12px;
+  width: 188px;
+  z-index: 9999;
+}
+
+.color-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.color-swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.selected { border-color: #333; box-shadow: 0 0 0 2px #fff inset; }
+
+.color-custom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.color-custom-label {
+  font-size: 0.82rem;
+  color: #555;
+}
+.color-custom-input {
+  width: 40px;
+  height: 26px;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.color-clear-btn {
+  width: 100%;
+  padding: 5px;
+  background: none;
+  border: 1.5px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #888;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.color-clear-btn:hover { background: #f5f5f5; }
+
+/* ── Calendar mode: リスト系をすべて非表示 ── */
+.cal-mode .input-row,
+.cal-mode #selectBar,
+.cal-mode #itemList,
+.cal-mode #emptyMsg {
+  display: none !important;
+}
+
+/* ── Calendar mode button ── */
+.calendar-mode-btn {
+  padding: 5px 8px;
+  background: #f0eeff;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.calendar-mode-btn:hover { background: #e0deff; }
+.calendar-mode-btn.active {
+  background: #6c63ff;
+  border-color: #6c63ff;
+}
+
+.calendar-mode-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+  object-fit: contain;
+}
+.calendar-mode-btn.active .calendar-mode-icon {
+  filter: brightness(0) invert(1);
+}
+
+/* ── Calendar view ── */
+.calendar-view {
+  margin-top: 4px;
+}
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cal-month-label {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.cal-nav-btn {
+  background: none;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
+  color: #6c63ff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.cal-nav-btn:hover { background: #e0deff; }
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #888;
+  margin-bottom: 4px;
+}
+.cal-weekdays .cal-sun { color: #e05555; }
+.cal-weekdays .cal-sat { color: #4a7fe0; }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-cell {
+  min-height: 72px;
+  border: 1px solid #ece9ff;
+  border-radius: 6px;
+  padding: 4px;
+  background: #fff;
+  vertical-align: top;
+  overflow: hidden;
+  transition: background 0.15s;
+}
+
+.cal-cell--empty {
+  background: #fafafa;
+  border-color: transparent;
+}
+
+.cal-cell--clickable {
+  cursor: pointer;
+}
+.cal-cell--clickable:hover {
+  background: #f5f3ff;
+}
+.cal-cell--has-tasks:hover {
+  background: #f0eeff;
+}
+
+.cal-date-num {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 2px;
+  line-height: 1.4;
+}
+.cal-date-num.cal-sun { color: #e05555; }
+.cal-date-num.cal-sat { color: #4a7fe0; }
+.cal-date-num.cal-today {
+  background: #6c63ff;
+  color: #fff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+}
+
+.cal-task-chip {
+  font-size: 0.65rem;
+  background: #6c63ff;
+  color: #fff;
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+}
+.cal-task-chip--done {
+  background: #b0aadd;
+  text-decoration: line-through;
+}
+.cal-task-more {
+  font-size: 0.62rem;
+  color: #9b8ff7;
+  padding-left: 2px;
+}
+
+/* ── Day detail panel ── */
+.cal-day-detail {
+  margin-top: 14px;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.cal-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f5f3ff;
+  border-bottom: 1px solid #e0dcff;
+}
+
+.cal-detail-date {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.cal-detail-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-detail-add-btn {
+  background: none;
+  color: #6c63ff;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.cal-detail-add-btn:hover { background: #ede9ff; }
+.cal-detail-add-btn.active {
+  background: #6c63ff;
+  color: #fff;
+}
+
+.cal-detail-close {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: #888;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+}
+.cal-detail-close:hover { color: #333; }
+
+/* ── Cal add form ── */
+.cal-add-form {
+  padding: 10px 14px 12px;
+  border-top: 1px solid #ece9ff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-add-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  outline: none;
+}
+.cal-add-input:focus { border-color: #6c63ff; }
+
+.cal-add-select {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1.5px solid #d8d4ff;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+}
+.cal-add-select:focus { border-color: #6c63ff; }
+
+.cal-add-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.cal-add-cancel {
+  padding: 6px 14px;
+  background: none;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.83rem;
+  cursor: pointer;
+  color: #666;
+}
+.cal-add-cancel:hover { background: #f0f0f0; }
+
+.cal-add-submit {
+  padding: 6px 16px;
+  background: #6c63ff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.83rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cal-add-submit:hover { background: #574fd6; }
+
+/* カレンダーのみタスクの印 */
+.cal-detail-item--cal-only .cal-detail-circle {
+  background: #f39c12;
+}
+
+.cal-detail-cal-only-badge {
+  font-size: 0.65rem;
+  background: #fff3e0;
+  color: #f39c12;
+  border: 1px solid #f5cba7;
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cal-detail-empty {
+  font-size: 0.83rem;
+  color: #bbb;
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+/* カレンダー詳細グリップ */
+.cal-detail-grip {
+  flex-shrink: 0;
+  cursor: grab;
+  color: #ccc;
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+}
+.cal-detail-grip:active { cursor: grabbing; }
+.cal-detail-item.cal-detail-dragging { opacity: 0.35; }
+
+/* カレンダー詳細ドロップライン */
+.cal-detail-drop-line {
+  height: 2px;
+  background: #6c63ff;
+  border-radius: 2px;
+  margin: 1px 0;
+}
+
+/* カレンダー詳細インライン編集 */
+.cal-detail-edit-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1.5px solid #6c63ff;
+  outline: none;
+  font-size: 0.88rem;
+  background: transparent;
+  padding: 1px 2px;
+  min-width: 0;
+}
+
+.cal-detail-del-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  margin-left: auto;
+  transition: color 0.15s;
+}
+.cal-detail-del-btn:hover { color: #e74c3c; }
+
+.cal-detail-list {
+  position: relative;
+  padding: 8px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+}
+
+.cal-detail-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  min-height: 36px;
+}
+.cal-detail-item .confirm-overlay {
+  top: -4px;
+  bottom: -4px;
+  left: -14px;
+  right: -14px;
+  border-radius: 8px;
+  padding: 0 14px;
+  gap: 6px;
+}
+.cal-detail-item .confirm-msg {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-detail-item .confirm-yes-btn,
+.cal-detail-item .confirm-no-btn {
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+  gap: 8px;
+}
+
+.cal-detail-circle {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6c63ff;
+}
+.cal-detail-item--done .cal-detail-circle { background: #b0aadd; }
+
+.cal-detail-text {
+  font-size: 0.88rem;
+  color: #222;
+  flex: 1;
+}
+.cal-detail-item--done .cal-detail-text {
+  color: #aaa;
+  text-decoration: line-through;
+}
+
+.cal-detail-time {
+  font-size: 0.78rem;
+  color: #9b8ff7;
+  white-space: nowrap;
+}
+
 /* ── スマホ対応 ── */
 @media (max-width: 540px) {
   body { padding: 16px 10px; }
@@ -944,6 +1438,14 @@ h1 {
 
   .history-btn,
   .select-mode-btn { padding: 5px 10px; font-size: 0.8rem; }
+  .calendar-mode-btn { padding: 4px 6px; }
+  .calendar-mode-icon { width: 20px; height: 20px; }
+
+  /* カレンダー */
+  .cal-cell { min-height: 56px; padding: 3px 2px; }
+  .cal-date-num { font-size: 0.7rem; }
+  .cal-task-chip { font-size: 0.6rem; padding: 1px 3px; }
+  .cal-task-more { font-size: 0.58rem; }
 
   /* 入力行 */
   .input-row { gap: 6px; }

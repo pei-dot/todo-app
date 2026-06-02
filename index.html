@@ -18,7 +18,10 @@
     <div class="title-row">
       <h1>とぅどぅ</h1>
       <div class="title-actions">
-<button id="selectModeBtn" class="select-mode-btn">まとめて選択</button>
+        <button id="calendarModeBtn" class="calendar-mode-btn" title="カレンダー">
+          <img src="./calendar_icon.png" alt="カレンダー" class="calendar-mode-icon">
+        </button>
+        <button id="selectModeBtn" class="select-mode-btn">まとめて選択</button>
         <button id="historyBtn" class="history-btn">履歴</button>
       </div>
     </div>
@@ -54,6 +57,41 @@
 
     <div id="itemList"></div>
     <p class="empty" id="emptyMsg">アイテムがありません</p>
+
+    <!-- カレンダービュー -->
+    <div id="calendarView" class="calendar-view" hidden>
+      <div class="cal-header">
+        <button id="calPrevBtn" class="cal-nav-btn">‹</button>
+        <span id="calMonthLabel" class="cal-month-label"></span>
+        <button id="calNextBtn" class="cal-nav-btn">›</button>
+      </div>
+      <div class="cal-weekdays">
+        <span class="cal-sun">日</span><span>月</span><span>火</span>
+        <span>水</span><span>木</span><span>金</span><span class="cal-sat">土</span>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+      <div id="calDayDetail" class="cal-day-detail" hidden>
+        <div class="cal-detail-header">
+          <span id="calDetailDate" class="cal-detail-date"></span>
+          <div class="cal-detail-header-btns">
+            <button id="calDetailAddBtn" class="cal-detail-add-btn">＋</button>
+            <button id="calDetailCloseBtn" class="cal-detail-close">×</button>
+          </div>
+        </div>
+        <div id="calDetailList" class="cal-detail-list"></div>
+        <div id="calAddForm" class="cal-add-form" hidden>
+          <input id="calAddInput" type="text" placeholder="タスク名を入力..." class="cal-add-input"/>
+          <select id="calAddTarget" class="cal-add-select">
+            <option value="none">リストなし</option>
+            <option value="cal-only">カレンダーのみ</option>
+          </select>
+          <div class="cal-add-btns">
+            <button id="calAddCancel" class="cal-add-cancel">キャンセル</button>
+            <button id="calAddSubmit" class="cal-add-submit">追加</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div id="historyPanel" class="history-panel" hidden>
       <div class="history-header">
